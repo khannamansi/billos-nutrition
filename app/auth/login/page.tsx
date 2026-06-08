@@ -41,7 +41,7 @@ export default function LoginPage() {
         
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🐘</div>
+          <div className="text-5xl mb-3">🐱</div>
           <h1 className="text-2xl font-bold text-white">Billo's Nutrition</h1>
           <p className="text-gray-400 mt-1">{isSignUp ? 'Create your account' : 'Welcome back!'}</p>
         </div>

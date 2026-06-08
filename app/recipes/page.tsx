@@ -87,7 +87,7 @@ export default function RecipesPage() {
       {/* Navbar */}
       <nav className="flex justify-between items-center px-8 py-5 border-b border-white/10">
         <a href="/dashboard" className="flex items-center gap-2">
-          <span className="text-2xl">🐘</span>
+          <span className="text-2xl">🐱</span>
           <span className="text-white font-bold text-lg">Billo's Nutrition</span>
         </a>
         <div className="flex items-center gap-6">

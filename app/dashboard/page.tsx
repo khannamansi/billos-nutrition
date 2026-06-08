@@ -34,7 +34,7 @@ export default function Dashboard() {
       
       <nav className="flex justify-between items-center px-8 py-5 border-b border-white/10">
         <div className="flex items-center gap-2">
-          <span className="text-2xl">🐘</span>
+          <span className="text-2xl">🐱</span>
           <span className="text-white font-bold text-lg">Billo's Nutrition</span>
         </div>
         <div className="flex items-center gap-6">
@@ -53,7 +53,7 @@ export default function Dashboard() {
 
       <div className="px-8 py-12 max-w-6xl mx-auto">
         <h1 className="text-4xl font-bold text-white mb-2">
-          Welcome back! 🐘
+          Welcome back! 🐱
         </h1>
         <p className="text-gray-400 text-lg mb-12">What are we cooking today?</p>
 
