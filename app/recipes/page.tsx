@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import Disclaimer from '../../components/Disclaimer'
 
 interface Recipe {
   name: string
@@ -96,7 +97,7 @@ export default function RecipesPage() {
           <a href="/history" className="text-gray-300 hover:text-white text-sm">History</a>
         </div>
       </nav>
-
+      <Disclaimer />
       <div className="max-w-4xl mx-auto px-8 py-10">
         <h1 className="text-3xl font-bold text-white mb-2">🍳 Recipe Generator</h1>
         <p className="text-gray-400 mb-8">Tell Billo what's in your fridge!</p>

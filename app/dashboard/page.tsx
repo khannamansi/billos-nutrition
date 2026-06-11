@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import Disclaimer from '../../components/Disclaimer'
 
 interface DietProfile {
   daily_calories: number
@@ -50,7 +51,7 @@ export default function Dashboard() {
           </button>
         </div>
       </nav>
-
+      <Disclaimer />
       <div className="px-8 py-12 max-w-6xl mx-auto">
         <h1 className="text-4xl font-bold text-white mb-2">
           Welcome back! 🐱
