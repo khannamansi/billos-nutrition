@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import Disclaimer from '../../components/Disclaimer'
+import Navbar from '@/components/Navbar'
 
 interface Recipe {
   name: string
@@ -14,8 +14,8 @@ interface Recipe {
 
 export default function RecipesPage() {
   const [ingredients, setIngredients] = useState('')
-  const [calories, setCalories] = useState(1400)
-  const [protein, setProtein] = useState(120)
+  const [calories, setCalories] = useState(0)
+  const [protein, setProtein] = useState(0)
   const [restrictions, setRestrictions] = useState('')
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [loading, setLoading] = useState(false)
@@ -25,7 +25,7 @@ export default function RecipesPage() {
   useEffect(() => {
     const loadProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { window.location.href = '/auth/login'; return }
+      if (!user) return // guest — allow through
 
       const { data } = await supabase
         .from('diet_profiles')
@@ -85,19 +85,8 @@ export default function RecipesPage() {
   return (
     <main className="min-h-screen" style={{background: 'linear-gradient(135deg, #0f4c5c 0%, #0a3340 100%)'}}>
       
-      {/* Navbar */}
-      <nav className="flex justify-between items-center px-8 py-5 border-b border-white/10">
-        <a href="/dashboard" className="flex items-center gap-2">
-          <span className="text-2xl">🐱</span>
-          <span className="text-white font-bold text-lg">Billo's Nutrition</span>
-        </a>
-        <div className="flex items-center gap-6">
-          <a href="/shopping" className="text-gray-300 hover:text-white text-sm">Shopping</a>
-          <a href="/saved" className="text-gray-300 hover:text-white text-sm">Saved</a>
-          <a href="/history" className="text-gray-300 hover:text-white text-sm">History</a>
-        </div>
-      </nav>
-      <Disclaimer />
+      <Navbar active="recipes" />
+      
       <div className="max-w-4xl mx-auto px-8 py-10">
         <h1 className="text-3xl font-bold text-white mb-2">🍳 Recipe Generator</h1>
         <p className="text-gray-400 mb-8">Tell Billo what's in your fridge!</p>

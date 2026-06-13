@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import Navbar from '@/components/Navbar'
 
 interface MealHistory {
   id: string
@@ -25,7 +26,7 @@ export default function HistoryPage() {
 
   const loadHistory = async () => {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { window.location.href = '/auth/login'; return }
+    if (!user) return // guest — allow through
 
     const { data } = await supabase
       .from('meal_history')
@@ -79,7 +80,7 @@ export default function HistoryPage() {
   return (
     <main className="min-h-screen" style={{background: 'linear-gradient(135deg, #0f4c5c 0%, #0a3340 100%)'}}>
       
-      <nav className="flex justify-between items-center px-8 py-5 border-b border-white/10">
+      {/* <nav className="flex justify-between items-center px-8 py-5 border-b border-white/10">
         <a href="/dashboard" className="flex items-center gap-2">
           <span className="text-2xl">🐱</span>
           <span className="text-white font-bold text-lg">Billo's Nutrition</span>
@@ -89,7 +90,8 @@ export default function HistoryPage() {
           <a href="/shopping" className="text-gray-300 hover:text-white text-sm">Shopping</a>
           <a href="/saved" className="text-gray-300 hover:text-white text-sm">Saved</a>
         </div>
-      </nav>
+      </nav> */}
+      <Navbar active="history"/>
 
       <div className="max-w-3xl mx-auto px-8 py-10">
         <div className="flex justify-between items-center mb-2">

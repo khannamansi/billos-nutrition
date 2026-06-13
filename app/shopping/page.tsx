@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import Navbar from '@/components/Navbar'
 
 interface ShoppingItem {
   name: string
@@ -10,8 +11,8 @@ interface ShoppingItem {
 
 export default function ShoppingPage() {
   const [ingredients, setIngredients] = useState('')
-  const [calories, setCalories] = useState(1400)
-  const [protein, setProtein] = useState(120)
+  const [calories, setCalories] = useState(0)
+  const [protein, setProtein] = useState(0)
   const [restrictions, setRestrictions] = useState('')
   const [items, setItems] = useState<ShoppingItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -21,7 +22,7 @@ export default function ShoppingPage() {
   useEffect(() => {
     const loadData = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { window.location.href = '/auth/login'; return }
+      if (!user) return // guest — allow through
 
       const { data: profile } = await supabase
         .from('diet_profiles')
@@ -92,17 +93,7 @@ export default function ShoppingPage() {
   return (
     <main className="min-h-screen" style={{background: 'linear-gradient(135deg, #0f4c5c 0%, #0a3340 100%)'}}>
       
-      <nav className="flex justify-between items-center px-8 py-5 border-b border-white/10">
-        <a href="/dashboard" className="flex items-center gap-2">
-          <span className="text-2xl">🐱</span>
-          <span className="text-white font-bold text-lg">Billo's Nutrition</span>
-        </a>
-        <div className="flex items-center gap-6">
-          <a href="/recipes" className="text-gray-300 hover:text-white text-sm">Recipes</a>
-          <a href="/saved" className="text-gray-300 hover:text-white text-sm">Saved</a>
-          <a href="/history" className="text-gray-300 hover:text-white text-sm">History</a>
-        </div>
-      </nav>
+      <Navbar active="shopping" />
 
       <div className="max-w-3xl mx-auto px-8 py-10">
         <h1 className="text-3xl font-bold text-white mb-2">🛒 Shopping List</h1>

@@ -106,6 +106,18 @@ export default function LoginPage() {
             {isSignUp ? 'Sign In' : 'Sign Up'}
           </button>
         </p>
+
+        <div className="flex items-center gap-3 mt-6 mb-2">
+          <div className="flex-1 h-px bg-gray-600" />
+          <span className="text-gray-400 text-sm">or</span>
+          <div className="flex-1 h-px bg-gray-600" />
+        </div>
+
+        <a href="/dashboard"
+          className="block w-full py-3 rounded-xl font-semibold text-center text-sm transition"
+          style={{ background: 'rgba(255,255,255,0.06)', color: '#9ca3af', border: '1px solid rgba(255,255,255,0.12)' }}>
+          Continue as Guest
+        </a>
       </div>
     </main>
   )

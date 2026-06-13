@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import Navbar from '@/components/Navbar'
 
 interface SavedRecipe {
   id: string
@@ -20,7 +21,7 @@ export default function SavedPage() {
   useEffect(() => {
     const loadSaved = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { window.location.href = '/auth/login'; return }
+      if (!user) return // guest — allow through
 
       const { data } = await supabase
         .from('saved_recipes')
@@ -44,17 +45,7 @@ export default function SavedPage() {
   return (
     <main className="min-h-screen" style={{background: 'linear-gradient(135deg, #0f4c5c 0%, #0a3340 100%)'}}>
       
-      <nav className="flex justify-between items-center px-8 py-5 border-b border-white/10">
-        <a href="/dashboard" className="flex items-center gap-2">
-          <span className="text-2xl">🐱</span>
-          <span className="text-white font-bold text-lg">Billo's Nutrition</span>
-        </a>
-        <div className="flex items-center gap-6">
-          <a href="/recipes" className="text-gray-300 hover:text-white text-sm">Recipes</a>
-          <a href="/shopping" className="text-gray-300 hover:text-white text-sm">Shopping</a>
-          <a href="/history" className="text-gray-300 hover:text-white text-sm">History</a>
-        </div>
-      </nav>
+      <Navbar active="saved" />
 
       <div className="max-w-4xl mx-auto px-8 py-10">
         <h1 className="text-3xl font-bold text-white mb-2">❤️ Saved Recipes</h1>
