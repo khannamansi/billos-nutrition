@@ -1,8 +1,8 @@
 /** @jest-environment jsdom */
 import { render, screen, waitFor } from '@testing-library/react'
 
-jest.mock('../../lib/supabase', () => ({
-  supabase: { auth: { getUser: jest.fn() } },
+jest.mock('../../lib/UserContext', () => ({
+  useUser: jest.fn().mockReturnValue({ user: null, loading: false }),
 }))
 
 jest.mock('../../components/Navbar', () => ({
@@ -10,12 +10,12 @@ jest.mock('../../components/Navbar', () => ({
   default: () => <nav data-testid="navbar" />,
 }))
 
-import { supabase } from '../../lib/supabase'
+import { useUser } from '../../lib/UserContext'
 import Dashboard from '../../app/dashboard/page'
 
 beforeEach(() => {
   jest.clearAllMocks()
-  ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: null } })
+  ;(useUser as jest.Mock).mockReturnValue({ user: null, loading: false })
   global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue(null) }) as any
 })
 
@@ -33,14 +33,13 @@ describe('Dashboard', () => {
     expect(screen.getByText('Meal History')).toBeInTheDocument()
   })
 
-  it('shows placeholder dots when no profile (guest)', async () => {
+  it('shows placeholder dots when no profile (guest)', () => {
     render(<Dashboard />)
-    await waitFor(() => expect(supabase.auth.getUser).toHaveBeenCalled())
     expect(screen.getAllByText('...').length).toBeGreaterThan(0)
   })
 
   it('shows profile data for logged-in user', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue({ daily_calories: 1800, daily_protein: 140, restrictions: 'vegetarian' }),
@@ -52,7 +51,7 @@ describe('Dashboard', () => {
   })
 
   it('shows "None" for restrictions when not set', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue({ daily_calories: 2000, daily_protein: 150, restrictions: '' }),

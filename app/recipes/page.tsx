@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
+import { useUser } from '../../lib/UserContext'
 import Navbar from '@/components/Navbar'
 import RecipeCard from '@/components/RecipeCard'
 
@@ -14,6 +14,7 @@ interface Recipe {
 }
 
 export default function RecipesPage() {
+  const { user, loading: authLoading } = useUser()
   const [ingredients, setIngredients] = useState('')
   const [calories, setCalories] = useState(0)
   const [protein, setProtein] = useState(0)
@@ -23,15 +24,11 @@ export default function RecipesPage() {
   const [streamProgress, setStreamProgress] = useState(0)
   const [saving, setSaving] = useState<string | null>(null)
   const [savedNames, setSavedNames] = useState<Set<string>>(new Set())
-  const [user, setUser] = useState<any>(null)
   const [guestPrompt, setGuestPrompt] = useState(false)
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      if (!user) return
-      const res = await fetch('/api/profile')
+    if (authLoading || !user) return
+    fetch('/api/profile').then(async res => {
       if (res.ok) {
         const data = await res.json()
         if (data) {
@@ -40,9 +37,8 @@ export default function RecipesPage() {
           setRestrictions(data.restrictions ?? '')
         }
       }
-    }
-    init()
-  }, [])
+    })
+  }, [user, authLoading])
 
   const generateRecipes = async () => {
     if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); return }

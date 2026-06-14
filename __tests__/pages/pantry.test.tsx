@@ -1,8 +1,8 @@
 /** @jest-environment jsdom */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
-jest.mock('../../lib/supabase', () => ({
-  supabase: { auth: { getUser: jest.fn() } },
+jest.mock('../../lib/UserContext', () => ({
+  useUser: jest.fn().mockReturnValue({ user: null, loading: false }),
 }))
 
 jest.mock('../../components/Navbar', () => ({
@@ -15,12 +15,12 @@ jest.mock('../../components/Footer', () => ({
   default: () => <footer data-testid="footer" />,
 }))
 
-import { supabase } from '../../lib/supabase'
+import { useUser } from '../../lib/UserContext'
 import PantryPage from '../../app/pantry/page'
 
 beforeEach(() => {
   jest.clearAllMocks()
-  ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: null } })
+  ;(useUser as jest.Mock).mockReturnValue({ user: null, loading: false })
   global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue([]) }) as any
 })
 
@@ -41,7 +41,7 @@ describe('PantryPage', () => {
   })
 
   it('shows Save button for logged-in user', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     render(<PantryPage />)
     await waitFor(() => expect(screen.getByText('💾 Save')).toBeInTheDocument())
   })
@@ -52,7 +52,7 @@ describe('PantryPage', () => {
   })
 
   it('loads stocked items for logged-in user', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue([{ item_name: 'Chicken Breast', is_stocked: true }]),
@@ -69,7 +69,7 @@ describe('PantryPage', () => {
   })
 
   it('saves pantry for logged-in user', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     global.fetch = jest.fn().mockImplementation((url: string, opts?: any) => {
       if (opts?.method === 'POST') return Promise.resolve({ ok: true, json: async () => ({ success: true }) })
       return Promise.resolve({ ok: true, json: async () => [] })

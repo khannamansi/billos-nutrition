@@ -1,21 +1,23 @@
 /** @jest-environment jsdom */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
+jest.mock('../../lib/UserContext', () => ({
+  useUser: jest.fn().mockReturnValue({ user: null, loading: false }),
+}))
+
 jest.mock('../../lib/supabase', () => ({
   supabase: {
-    auth: {
-      getUser: jest.fn(),
-      signOut: jest.fn(),
-    },
+    auth: { signOut: jest.fn() },
   },
 }))
 
+import { useUser } from '../../lib/UserContext'
 import { supabase } from '../../lib/supabase'
 import Navbar from '../../components/Navbar'
 
 beforeEach(() => {
   jest.clearAllMocks()
-  ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: null } })
+  ;(useUser as jest.Mock).mockReturnValue({ user: null, loading: false })
   ;(supabase.auth.signOut as jest.Mock).mockResolvedValue({})
   delete (window as any).location
   ;(window as any).location = { href: '', origin: 'http://localhost' }
@@ -35,21 +37,20 @@ describe('Navbar', () => {
     expect(screen.getByText('History')).toBeInTheDocument()
   })
 
-  it('shows Sign In when no user is logged in', async () => {
+  it('shows Sign In when no user is logged in', () => {
     render(<Navbar />)
-    await waitFor(() => expect(screen.getByText('Sign In')).toBeInTheDocument())
+    expect(screen.getByText('Sign In')).toBeInTheDocument()
   })
 
-  it('shows Sign Out when user is logged in', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+  it('shows Sign Out when user is logged in', () => {
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     render(<Navbar />)
-    await waitFor(() => expect(screen.getByText('Sign Out')).toBeInTheDocument())
+    expect(screen.getByText('Sign Out')).toBeInTheDocument()
   })
 
   it('calls signOut on Sign Out click', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     render(<Navbar />)
-    await waitFor(() => expect(screen.getByText('Sign Out')).toBeInTheDocument())
     fireEvent.click(screen.getByText('Sign Out'))
     await waitFor(() => expect(supabase.auth.signOut).toHaveBeenCalled())
   })

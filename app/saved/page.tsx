@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
+import { useUser } from '../../lib/UserContext'
 import Navbar from '@/components/Navbar'
 import RecipeCard from '@/components/RecipeCard'
 
@@ -16,20 +16,19 @@ interface SavedRecipe {
 }
 
 export default function SavedPage() {
+  const { user, loading: authLoading } = useUser()
   const [recipes, setRecipes] = useState<SavedRecipe[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
 
   useEffect(() => {
-    const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); return }
-      const res = await fetch('/api/recipes/saved')
+    if (authLoading) return
+    if (!user) { setLoading(false); return }
+    fetch('/api/recipes/saved').then(async res => {
       if (res.ok) setRecipes(await res.json())
       setLoading(false)
-    }
-    load()
-  }, [])
+    })
+  }, [user, authLoading])
 
   const handleDelete = async (id: string) => {
     setDeleting(id)

@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
+import { useState, useEffect, useMemo } from 'react'
+import { useUser } from '../../lib/UserContext'
 import Navbar from '../../components/Navbar'
 import ShoppingList from '../../components/ShoppingList'
 import { PANTRY_CATEGORIES } from '../../lib/pantryData'
@@ -14,8 +14,8 @@ interface ShoppingItem {
 type StockedMap = Record<string, boolean>
 
 export default function ShoppingPage() {
+  const { user, loading: authLoading } = useUser()
   const [tab, setTab] = useState<'shopping' | 'pantry'>('shopping')
-  const [user, setUser] = useState<any>(null)
 
   const [ingredients, setIngredients] = useState('')
   const [calories, setCalories] = useState(0)
@@ -34,18 +34,15 @@ export default function ShoppingPage() {
   const [pantrySaved, setPantrySaved] = useState(false)
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true)
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      if (!user) { setLoading(false); return }
+    if (authLoading) return
+    if (!user) { setLoading(false); return }
 
-      const [profileRes, listRes, pantryRes] = await Promise.all([
-        fetch('/api/profile'),
-        fetch('/api/shopping/list'),
-        fetch('/api/pantry'),
-      ])
-
+    setLoading(true)
+    Promise.all([
+      fetch('/api/profile'),
+      fetch('/api/shopping/list'),
+      fetch('/api/pantry'),
+    ]).then(async ([profileRes, listRes, pantryRes]) => {
       if (profileRes.ok) {
         const profile = await profileRes.json()
         if (profile) {
@@ -65,9 +62,8 @@ export default function ShoppingPage() {
         setStocked(map)
       }
       setLoading(false)
-    }
-    load()
-  }, [])
+    })
+  }, [user, authLoading])
 
   const generateList = async () => {
     if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); return }
@@ -131,13 +127,20 @@ export default function ShoppingPage() {
     setPantrySaving(false)
   }
 
-  const stockedCount = Object.values(stocked).filter(Boolean).length
-  const filtered = search.trim()
-    ? PANTRY_CATEGORIES.map((cat) => ({
-        ...cat,
-        items: cat.items.filter((i) => i.toLowerCase().includes(search.toLowerCase())),
-      })).filter((cat) => cat.items.length > 0)
-    : PANTRY_CATEGORIES
+  const stockedCount = useMemo(
+    () => Object.values(stocked).filter(Boolean).length,
+    [stocked]
+  )
+
+  const filtered = useMemo(
+    () => search.trim()
+      ? PANTRY_CATEGORIES.map((cat) => ({
+          ...cat,
+          items: cat.items.filter((i) => i.toLowerCase().includes(search.toLowerCase())),
+        })).filter((cat) => cat.items.length > 0)
+      : PANTRY_CATEGORIES,
+    [search]
+  )
 
   return (
     <main className="min-h-screen pb-24" style={{ background: 'linear-gradient(135deg, #0f4c5c 0%, #0a3340 100%)' }}>

@@ -1,8 +1,8 @@
 /** @jest-environment jsdom */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
-jest.mock('../../lib/supabase', () => ({
-  supabase: { auth: { getUser: jest.fn() } },
+jest.mock('../../lib/UserContext', () => ({
+  useUser: jest.fn().mockReturnValue({ user: null, loading: false }),
 }))
 
 jest.mock('@/components/Navbar', () => ({
@@ -10,7 +10,7 @@ jest.mock('@/components/Navbar', () => ({
   default: () => <nav data-testid="navbar" />,
 }))
 
-import { supabase } from '../../lib/supabase'
+import { useUser } from '../../lib/UserContext'
 import SavedPage from '../../app/saved/page'
 
 const sampleRecipes = [
@@ -27,7 +27,7 @@ const sampleRecipes = [
 
 beforeEach(() => {
   jest.clearAllMocks()
-  ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: null } })
+  ;(useUser as jest.Mock).mockReturnValue({ user: null, loading: false })
   global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue([]) }) as any
 })
 
@@ -38,7 +38,7 @@ describe('SavedPage', () => {
   })
 
   it('renders saved recipes for logged-in user', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue(sampleRecipes) }) as any
     render(<SavedPage />)
     await waitFor(() => expect(screen.getByText('Chicken Bowl')).toBeInTheDocument())
@@ -47,7 +47,7 @@ describe('SavedPage', () => {
   })
 
   it('shows calorie and protein badges', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue(sampleRecipes) }) as any
     render(<SavedPage />)
     await waitFor(() => expect(screen.getByText('🔥 500 kcal')).toBeInTheDocument())
@@ -55,7 +55,7 @@ describe('SavedPage', () => {
   })
 
   it('removes a recipe on delete', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     global.fetch = jest.fn()
       .mockResolvedValueOnce({ ok: true, json: jest.fn().mockResolvedValue(sampleRecipes) })
       .mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue({ success: true }) }) as any

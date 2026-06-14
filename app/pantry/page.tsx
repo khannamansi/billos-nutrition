@@ -1,6 +1,6 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
+import { useEffect, useState, useMemo } from 'react'
+import { useUser } from '../../lib/UserContext'
 import { PANTRY_CATEGORIES } from '../../lib/pantryData'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
@@ -8,7 +8,7 @@ import Footer from '../../components/Footer'
 type StockedMap = Record<string, boolean>
 
 export default function Pantry() {
-  const [user, setUser] = useState<any>(null)
+  const { user, loading: authLoading } = useUser()
   const [stocked, setStocked] = useState<StockedMap>({})
   const [search, setSearch] = useState('')
   const [saving, setSaving] = useState(false)
@@ -16,22 +16,21 @@ export default function Pantry() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      if (user) {
-        const res = await fetch('/api/pantry')
+    if (authLoading) return
+    if (user) {
+      fetch('/api/pantry').then(async res => {
         if (res.ok) {
           const data = await res.json()
           const map: StockedMap = {}
           data.forEach((row: any) => { map[row.item_name] = row.is_stocked })
           setStocked(map)
         }
-      }
+        setLoading(false)
+      })
+    } else {
       setLoading(false)
     }
-    init()
-  }, [])
+  }, [user, authLoading])
 
   const toggle = (item: string) => {
     setStocked((prev) => ({ ...prev, [item]: !prev[item] }))
@@ -50,13 +49,20 @@ export default function Pantry() {
     if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2000) }
   }
 
-  const stockedCount = Object.values(stocked).filter(Boolean).length
-  const filtered = search.trim()
-    ? PANTRY_CATEGORIES.map((cat) => ({
-        ...cat,
-        items: cat.items.filter((i) => i.toLowerCase().includes(search.toLowerCase())),
-      })).filter((cat) => cat.items.length > 0)
-    : PANTRY_CATEGORIES
+  const stockedCount = useMemo(
+    () => Object.values(stocked).filter(Boolean).length,
+    [stocked]
+  )
+
+  const filtered = useMemo(
+    () => search.trim()
+      ? PANTRY_CATEGORIES.map((cat) => ({
+          ...cat,
+          items: cat.items.filter((i) => i.toLowerCase().includes(search.toLowerCase())),
+        })).filter((cat) => cat.items.length > 0)
+      : PANTRY_CATEGORIES,
+    [search]
+  )
 
   if (loading) {
     return (

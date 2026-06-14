@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../../lib/supabase'
+import { useUser } from '../../lib/UserContext'
 import Navbar from '@/components/Navbar'
 import MealHistoryCard from '@/components/MealHistoryCard'
 
@@ -19,8 +19,13 @@ interface FoodResult {
   protein_per_100g: number
 }
 
+const LIMIT = 20
+
 export default function HistoryPage() {
+  const { user, loading: authLoading } = useUser()
   const [meals, setMeals] = useState<MealEntry[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [mealName, setMealName] = useState('')
   const [calories, setCalories] = useState('')
@@ -28,7 +33,6 @@ export default function HistoryPage() {
   const [serving, setServing] = useState('100')
   const [adding, setAdding] = useState(false)
   const [showForm, setShowForm] = useState(false)
-  const [user, setUser] = useState<any>(null)
   const [guestPrompt, setGuestPrompt] = useState(false)
 
   const [query, setQuery] = useState('')
@@ -38,16 +42,28 @@ export default function HistoryPage() {
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); setLoading(false); return }
-      const res = await fetch('/api/meals')
-      if (res.ok) setMeals(await res.json())
+    if (authLoading) return
+    if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); setLoading(false); return }
+    setPage(1)
+    fetch(`/api/meals?page=1&limit=${LIMIT}`).then(async res => {
+      if (res.ok) {
+        const { meals, total } = await res.json()
+        setMeals(meals ?? [])
+        setTotal(total ?? 0)
+      }
       setLoading(false)
+    })
+  }, [user, authLoading])
+
+  const loadMore = async () => {
+    const nextPage = page + 1
+    const res = await fetch(`/api/meals?page=${nextPage}&limit=${LIMIT}`)
+    if (res.ok) {
+      const { meals: more } = await res.json()
+      setMeals((prev) => [...prev, ...more])
+      setPage(nextPage)
     }
-    init()
-  }, [])
+  }
 
   useEffect(() => {
     if (searchRef.current) clearTimeout(searchRef.current)
@@ -106,6 +122,7 @@ export default function HistoryPage() {
     if (res.ok) {
       const data = await res.json()
       setMeals([data, ...meals])
+      setTotal((t) => t + 1)
       setMealName('')
       setCalories('')
       setProtein('')
@@ -118,6 +135,7 @@ export default function HistoryPage() {
   const handleDelete = async (id: string) => {
     await fetch(`/api/meals/${id}`, { method: 'DELETE' })
     setMeals((prev) => prev.filter((m) => m.id !== id))
+    setTotal((t) => t - 1)
   }
 
   const todaysMeals = meals.filter(
@@ -239,11 +257,21 @@ export default function HistoryPage() {
             <p className="text-gray-400">Start tracking what you eat!</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {meals.map((meal) => (
-              <MealHistoryCard key={meal.id} meal={meal} onDelete={handleDelete} />
-            ))}
-          </div>
+          <>
+            <div className="space-y-3">
+              {meals.map((meal) => (
+                <MealHistoryCard key={meal.id} meal={meal} onDelete={handleDelete} />
+              ))}
+            </div>
+            {meals.length < total && (
+              <button
+                onClick={loadMore}
+                className="mt-6 w-full py-3 rounded-xl font-semibold text-sm transition"
+                style={{ background: 'rgba(255,255,255,0.08)', color: '#9ca3af', border: '1px solid rgba(255,255,255,0.12)' }}>
+                Load more
+              </button>
+            )}
+          </>
         )}
       </div>
     </main>

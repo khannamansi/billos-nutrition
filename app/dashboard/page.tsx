@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
+import { useUser } from '../../lib/UserContext'
 import Navbar from '../../components/Navbar'
 
 interface Profile {
@@ -10,17 +10,15 @@ interface Profile {
 }
 
 export default function Dashboard() {
+  const { user, loading: authLoading } = useUser()
   const [profile, setProfile] = useState<Profile | null>(null)
 
   useEffect(() => {
-    const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const res = await fetch('/api/profile')
-      if (res.ok) setProfile(await res.json())
-    }
-    load()
-  }, [])
+    if (authLoading || !user) return
+    fetch('/api/profile').then(res => res.ok ? res.json() : null).then(data => {
+      if (data) setProfile(data)
+    })
+  }, [user, authLoading])
 
   return (
     <main className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f4c5c 0%, #0a3340 100%)' }}>

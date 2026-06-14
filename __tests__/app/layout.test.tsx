@@ -1,4 +1,9 @@
 import React from 'react'
+
+jest.mock('../../lib/UserContext', () => ({
+  UserProvider: ({ children }: { children: React.ReactNode }) => children,
+}))
+
 import RootLayout, { metadata } from '../../app/layout'
 
 describe('RootLayout', () => {

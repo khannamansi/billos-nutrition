@@ -1,17 +1,13 @@
 'use client'
-import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useUser } from '../lib/UserContext'
 
 interface NavbarProps {
   active?: 'recipes' | 'shopping' | 'saved' | 'history' | 'dashboard' | 'pantry' | 'meal-prep' | 'tracker'
 }
 
 export default function Navbar({ active }: NavbarProps) {
-  const [user, setUser] = useState<any>(null)
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
-  }, [])
+  const { user } = useUser()
 
   const links = [
     // { href: '/pantry', label: 'Pantry', key: 'pantry' },

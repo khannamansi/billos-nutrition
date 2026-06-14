@@ -1,16 +1,16 @@
 /** @jest-environment jsdom */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
-jest.mock('../../lib/supabase', () => ({
-  supabase: { auth: { getUser: jest.fn() } },
+jest.mock('../../lib/UserContext', () => ({
+  useUser: jest.fn().mockReturnValue({ user: null, loading: false }),
 }))
 
-import { supabase } from '../../lib/supabase'
+import { useUser } from '../../lib/UserContext'
 import Onboarding from '../../app/onboarding/page'
 
 beforeEach(() => {
   jest.clearAllMocks()
-  ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: null } })
+  ;(useUser as jest.Mock).mockReturnValue({ user: null, loading: false })
   global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue(null) }) as any
   delete (window as any).location
   ;(window as any).location = { href: '', origin: 'http://localhost' }
@@ -23,14 +23,14 @@ describe('Onboarding', () => {
   })
 
   it('renders sliders for logged-in user', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     render(<Onboarding />)
     await waitFor(() => expect(screen.getByText(/Daily Calories/)).toBeInTheDocument())
     expect(screen.getByText(/Daily Protein/)).toBeInTheDocument()
   })
 
   it('loads existing profile into sliders', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue({ daily_calories: 1800, daily_protein: 130, restrictions: 'gluten free' }),
@@ -41,7 +41,7 @@ describe('Onboarding', () => {
   })
 
   it('saves goals on button click', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue({ success: true }) }) as any
     render(<Onboarding />)
     await waitFor(() => expect(screen.getByText(/Set Your Diet Goals/)).toBeInTheDocument())
@@ -50,7 +50,7 @@ describe('Onboarding', () => {
   })
 
   it('shows success message after save', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue({ success: true }) }) as any
     render(<Onboarding />)
     await waitFor(() => expect(screen.getByText(/Set Your Diet Goals/)).toBeInTheDocument())
@@ -59,7 +59,7 @@ describe('Onboarding', () => {
   })
 
   it('shows error when save fails', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     global.fetch = jest.fn()
       .mockResolvedValueOnce({ ok: true, json: jest.fn().mockResolvedValue(null) })
       .mockResolvedValueOnce({ ok: false, json: jest.fn().mockResolvedValue({ error: 'DB error' }) }) as any
@@ -70,7 +70,7 @@ describe('Onboarding', () => {
   })
 
   it('renders back to dashboard link', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     render(<Onboarding />)
     await waitFor(() => expect(screen.getByText('← Back to Dashboard')).toBeInTheDocument())
   })

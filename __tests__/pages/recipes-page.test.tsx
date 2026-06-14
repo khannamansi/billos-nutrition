@@ -1,8 +1,8 @@
 /** @jest-environment jsdom */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
-jest.mock('../../lib/supabase', () => ({
-  supabase: { auth: { getUser: jest.fn() } },
+jest.mock('../../lib/UserContext', () => ({
+  useUser: jest.fn().mockReturnValue({ user: null, loading: false }),
 }))
 
 jest.mock('@/components/Navbar', () => ({
@@ -10,7 +10,7 @@ jest.mock('@/components/Navbar', () => ({
   default: () => <nav data-testid="navbar" />,
 }))
 
-import { supabase } from '../../lib/supabase'
+import { useUser } from '../../lib/UserContext'
 import RecipesPage from '../../app/recipes/page'
 
 const mockRecipes = [
@@ -36,8 +36,8 @@ function makeStreamingMock(payload: object) {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: null } })
-  global.fetch = jest.fn().mockImplementation((url: string, opts?: any) => {
+  ;(useUser as jest.Mock).mockReturnValue({ user: null, loading: false })
+  global.fetch = jest.fn().mockImplementation((url: string) => {
     if (url === '/api/profile') return Promise.resolve({ ok: true, json: async () => null })
     if (url === '/api/recipes/saved') return Promise.resolve({ ok: true, json: async () => ({ success: true }) })
     return Promise.resolve(makeStreamingMock({ recipes: mockRecipes }))
@@ -45,21 +45,19 @@ beforeEach(() => {
 })
 
 describe('RecipesPage', () => {
-  it('renders Recipe Generator heading', async () => {
+  it('renders Recipe Generator heading', () => {
     render(<RecipesPage />)
-    await waitFor(() => expect(supabase.auth.getUser).toHaveBeenCalled())
     expect(screen.getByText('🍳 Recipe Generator')).toBeInTheDocument()
   })
 
-  it('shows 0 kcal for guest (no profile)', async () => {
+  it('shows 0 kcal for guest (no profile)', () => {
     render(<RecipesPage />)
-    await waitFor(() => expect(supabase.auth.getUser).toHaveBeenCalled())
     expect(screen.getByText('0 kcal')).toBeInTheDocument()
   })
 
   it('loads profile data for logged-in user', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
-    global.fetch = jest.fn().mockImplementation((url: string, opts?: any) => {
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
+    global.fetch = jest.fn().mockImplementation((url: string) => {
       if (url === '/api/profile') return Promise.resolve({ ok: true, json: async () => ({ daily_calories: 2000, daily_protein: 150, restrictions: 'none' }) })
       if (url === '/api/recipes/saved') return Promise.resolve({ ok: true, json: async () => ({ success: true }) })
       return Promise.resolve(makeStreamingMock({ recipes: mockRecipes }))
@@ -69,17 +67,16 @@ describe('RecipesPage', () => {
     expect(screen.getByText('150g')).toBeInTheDocument()
   })
 
-  it('does not call fetch for guest user', async () => {
+  it('does not call fetch for guest user', () => {
     render(<RecipesPage />)
-    await waitFor(() => expect(supabase.auth.getUser).toHaveBeenCalled())
     fireEvent.change(screen.getByPlaceholderText(/chicken breast/), { target: { value: 'eggs' } })
     fireEvent.click(screen.getByText('✨ Generate Recipes'))
     expect(global.fetch).not.toHaveBeenCalledWith('/api/recipes', expect.anything())
   })
 
   it('generates recipes for logged-in user', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
-    global.fetch = jest.fn().mockImplementation((url: string, opts?: any) => {
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
+    global.fetch = jest.fn().mockImplementation((url: string) => {
       if (url === '/api/profile') return Promise.resolve({ ok: true, json: async () => ({ daily_calories: 2000, daily_protein: 150, restrictions: '' }) })
       if (url === '/api/recipes/saved') return Promise.resolve({ ok: true, json: async () => ({ success: true }) })
       return Promise.resolve(makeStreamingMock({ recipes: mockRecipes }))
@@ -94,8 +91,8 @@ describe('RecipesPage', () => {
   })
 
   it('saves a recipe for logged-in user', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
-    global.fetch = jest.fn().mockImplementation((url: string, opts?: any) => {
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
+    global.fetch = jest.fn().mockImplementation((url: string) => {
       if (url === '/api/profile') return Promise.resolve({ ok: true, json: async () => ({ daily_calories: 2000, daily_protein: 150, restrictions: '' }) })
       if (url === '/api/recipes/saved') return Promise.resolve({ ok: true, json: async () => ({ success: true }) })
       return Promise.resolve(makeStreamingMock({ recipes: mockRecipes }))

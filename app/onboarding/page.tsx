@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
+import { useUser } from '../../lib/UserContext'
 
 export default function Onboarding() {
+  const { user, loading: authLoading } = useUser()
   const [calories, setCalories] = useState(1400)
   const [protein, setProtein] = useState(120)
   const [restrictions, setRestrictions] = useState('')
@@ -10,10 +11,9 @@ export default function Onboarding() {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { window.location.href = '/auth/login'; return }
-      const res = await fetch('/api/profile')
+    if (authLoading) return
+    if (!user) { window.location.href = '/auth/login'; return }
+    fetch('/api/profile').then(async res => {
       if (res.ok) {
         const data = await res.json()
         if (data) {
@@ -22,9 +22,8 @@ export default function Onboarding() {
           setRestrictions(data.restrictions ?? '')
         }
       }
-    }
-    load()
-  }, [])
+    })
+  }, [user, authLoading])
 
   const handleSave = async () => {
     setLoading(true)
