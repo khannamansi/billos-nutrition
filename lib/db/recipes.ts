@@ -5,6 +5,7 @@ export interface SavedRecipe {
   name: string
   calories: number
   protein: number
+  prepTime?: string
   instructions: string
   ingredients: string
   saved_at: string
@@ -14,6 +15,7 @@ export interface RecipeInput {
   name: string
   calories: number
   protein: number
+  prepTime?: string
   instructions: string
   ingredients: string
 }

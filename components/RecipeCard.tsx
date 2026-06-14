@@ -4,7 +4,7 @@ interface Recipe {
   name: string
   calories: number
   protein: number
-  prepTime: string
+  prepTime?: string
   ingredients: string
   instructions: string
 }
@@ -43,10 +43,12 @@ export default function RecipeCard({ recipe, onSave, saving, saved }: RecipeCard
           style={{ background: 'rgba(74,222,128,0.2)', color: '#4ade80' }}>
           💪 {recipe.protein}g protein
         </span>
-        <span className="px-3 py-1 rounded-full text-xs font-semibold"
-          style={{ background: 'rgba(96,165,250,0.2)', color: '#60a5fa' }}>
-          ⏱️ {recipe.prepTime}
-        </span>
+        {recipe.prepTime && (
+          <span className="px-3 py-1 rounded-full text-xs font-semibold"
+            style={{ background: 'rgba(96,165,250,0.2)', color: '#60a5fa' }}>
+            ⏱️ {recipe.prepTime}
+          </span>
+        )}
       </div>
 
       <div className="mb-4">
