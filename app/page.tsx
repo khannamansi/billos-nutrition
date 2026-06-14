@@ -1,13 +1,13 @@
 'use client'
 import { useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { useUser } from '../lib/UserContext'
 
 export default function Home() {
+  const { user, loading } = useUser()
+
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) window.location.href = '/dashboard'
-    })
-  }, [])
+    if (!loading && user) window.location.href = '/dashboard'
+  }, [user, loading])
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center"

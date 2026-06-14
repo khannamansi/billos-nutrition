@@ -1,8 +1,9 @@
-jest.mock('@supabase/supabase-js', () => ({
-  createClient: jest.fn().mockReturnValue({ auth: {}, from: jest.fn() }),
+jest.mock('@supabase/ssr', () => ({
+  createBrowserClient: jest.fn().mockReturnValue({ auth: {}, from: jest.fn() }),
+  createServerClient: jest.fn(),
 }))
 
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 import { supabase } from '../../lib/supabase'
 
 describe('supabase client', () => {
@@ -10,7 +11,7 @@ describe('supabase client', () => {
     expect(supabase).toBeDefined()
   })
 
-  it('is created via createClient', () => {
-    expect(createClient).toHaveBeenCalled()
+  it('is created via createBrowserClient', () => {
+    expect(createBrowserClient).toHaveBeenCalled()
   })
 })

@@ -1,18 +1,16 @@
 /** @jest-environment jsdom */
 import { render, screen, waitFor } from '@testing-library/react'
 
-jest.mock('../../lib/supabase', () => ({
-  supabase: {
-    auth: { getUser: jest.fn() },
-  },
+jest.mock('../../lib/UserContext', () => ({
+  useUser: jest.fn().mockReturnValue({ user: null, loading: false }),
 }))
 
-import { supabase } from '../../lib/supabase'
+import { useUser } from '../../lib/UserContext'
 import Home from '../../app/page'
 
 beforeEach(() => {
   jest.clearAllMocks()
-  ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: null } })
+  ;(useUser as jest.Mock).mockReturnValue({ user: null, loading: false })
   delete (window as any).location
   ;(window as any).location = { href: '', origin: 'http://localhost' }
 })
@@ -39,14 +37,14 @@ describe('Home (landing page)', () => {
   })
 
   it('redirects to dashboard when user is already logged in', async () => {
-    ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     render(<Home />)
     await waitFor(() => expect((window as any).location.href).toBe('/dashboard'))
   })
 
   it('does not redirect when no user is logged in', async () => {
     render(<Home />)
-    await waitFor(() => expect(supabase.auth.getUser).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getByText('Sign In')).toBeInTheDocument())
     expect((window as any).location.href).toBe('')
   })
 })
