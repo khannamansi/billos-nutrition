@@ -6,6 +6,10 @@ export async function POST(request: NextRequest) {
   try {
     const { ingredients, calories, protein, restrictions } = await request.json()
 
+    if (calories === undefined || protein === undefined) {
+      throw new Error('Missing required fields: calories and protein')
+    }
+
     const llm = new ChatOpenAI({
       model: 'gpt-4o-mini',
       temperature: 0.7,
@@ -41,7 +45,9 @@ export async function POST(request: NextRequest) {
     })
 
     const response = await llm.invoke(formattedPrompt)
-    const content = response.content as string
+    const content = typeof response.content === 'string'
+      ? response.content
+      : JSON.stringify(response.content)
     const clean = content.replace(/```json|```/g, '').trim()
     const parsed = JSON.parse(clean)
 

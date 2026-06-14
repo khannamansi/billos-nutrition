@@ -21,9 +21,9 @@ export default function Onboarding() {
         .single()
       
       if (data) {
-        setCalories(data.daily_calories)
-        setProtein(data.daily_protein)
-        setRestrictions(data.restrictions)
+        setCalories(data.daily_calories ?? 1400)
+        setProtein(data.daily_protein ?? 120)
+        setRestrictions(data.restrictions ?? '')
       }
     }
     loadProfile()

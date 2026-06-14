@@ -9,7 +9,8 @@ const config: Config = {
     coverageProvider: 'v8',
     testEnvironment: 'node',
     moduleNameMapper: {
-        '^next/server$': '<rootDir>/node_modules/next/dist/server/web/spec-extension/request.js'
+        '^next/server$': '<rootDir>/node_modules/next/dist/server/web/spec-extension/request.js',
+        '^@/(.*)$': '<rootDir>/$1'
     },
     setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
     collectCoverageFrom: [

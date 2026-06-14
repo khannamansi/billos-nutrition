@@ -10,6 +10,10 @@ jest.mock('next/server', () => ({
     json: (data: any, init?: any) => ({
       json: async () => data,
       status: init?.status || 200
+    }),
+    redirect: (url: string | URL, status?: number) => ({
+      url: url.toString(),
+      status: status || 307
     })
   }
 }))

@@ -47,9 +47,9 @@ export default function ShoppingPage() {
         .single()
 
       if (profile) {
-        setCalories(profile.daily_calories)
-        setProtein(profile.daily_protein)
-        setRestrictions(profile.restrictions)
+        setCalories(profile.daily_calories ?? 0)
+        setProtein(profile.daily_protein ?? 0)
+        setRestrictions(profile.restrictions ?? '')
       }
 
       const { data: savedList } = await supabase
@@ -60,7 +60,7 @@ export default function ShoppingPage() {
         .limit(1)
         .single()
 
-      if (savedList) setItems(savedList.items)
+      if (savedList?.items) setItems(savedList.items)
 
       const { data: pantryData } = await supabase
         .from('pantry_items')

@@ -37,9 +37,9 @@ export default function RecipesPage() {
         .single()
 
       if (data) {
-        setCalories(data.daily_calories)
-        setProtein(data.daily_protein)
-        setRestrictions(data.restrictions)
+        setCalories(data.daily_calories ?? 0)
+        setProtein(data.daily_protein ?? 0)
+        setRestrictions(data.restrictions ?? '')
       }
     }
     loadProfile()
