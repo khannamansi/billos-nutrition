@@ -21,7 +21,7 @@ export default function Navbar({ active }: NavbarProps) {
 
   return (
     <nav className="flex justify-between items-center px-8 py-5 border-b border-white/10">
-      <a href="/" className="flex items-center gap-2">
+      <a href={user ? '/dashboard' : '/'} className="flex items-center gap-2">
         <span className="text-2xl">🐱</span>
         <span className="text-white font-bold text-lg">Billo's <span style={{color: '#D4AF37'}}>Nutrition</span></span>
       </a>

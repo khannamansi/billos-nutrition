@@ -9,6 +9,8 @@ export default function Home() {
     if (!loading && user) window.location.href = '/dashboard'
   }, [user, loading])
 
+  if (loading || user) return null
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center"
       style={{ background: 'linear-gradient(135deg, #0f4c5c 0%, #0a3340 100%)' }}>
