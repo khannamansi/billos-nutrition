@@ -42,8 +42,16 @@ beforeEach(() => {
   }
   ;(supabase.from as jest.Mock).mockReturnValue(mockBuilder)
   ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: null } })
+  const encoder = new TextEncoder()
+  const encoded = encoder.encode(JSON.stringify({ recipes: mockRecipes }))
+  const mockReader = {
+    read: jest.fn()
+      .mockResolvedValueOnce({ done: false, value: encoded })
+      .mockResolvedValue({ done: true, value: undefined }),
+  }
   global.fetch = jest.fn().mockResolvedValue({
-    json: jest.fn().mockResolvedValue({ recipes: mockRecipes }),
+    ok: true,
+    body: { getReader: () => mockReader },
   }) as any
 })
 
@@ -106,6 +114,6 @@ describe('RecipesPage', () => {
     fireEvent.click(screen.getByText('✨ Generate Recipes'))
     await waitFor(() => expect(screen.getByText('Grilled Chicken')).toBeInTheDocument())
     fireEvent.click(screen.getByText('❤️ Save'))
-    await waitFor(() => expect(screen.getByText(/saved to favorites/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('✅ Saved')).toBeInTheDocument())
   })
 })

@@ -44,8 +44,16 @@ beforeEach(() => {
   }
   ;(supabase.from as jest.Mock).mockReturnValue(mockBuilder)
   ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: null } })
+  const encoder = new TextEncoder()
+  const encoded = encoder.encode(JSON.stringify({ items: mockItems }))
+  const mockReader = {
+    read: jest.fn()
+      .mockResolvedValueOnce({ done: false, value: encoded })
+      .mockResolvedValue({ done: true, value: undefined }),
+  }
   global.fetch = jest.fn().mockResolvedValue({
-    json: jest.fn().mockResolvedValue({ items: mockItems }),
+    ok: true,
+    body: { getReader: () => mockReader },
   }) as any
 })
 

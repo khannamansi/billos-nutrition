@@ -1,44 +1,27 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { getProfile, type DietProfile } from '../../lib/db/profile'
 import Navbar from '../../components/Navbar'
 
-interface DietProfile {
-  daily_calories: number
-  daily_protein: number
-  restrictions: string
-}
-
 export default function Dashboard() {
-  const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<DietProfile | null>(null)
 
   useEffect(() => {
-    const getData = async () => {
+    const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return // guest
-      setUser(user)
-
-      const { data } = await supabase
-        .from('diet_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single()
-
+      if (!user) return
+      const { data } = await getProfile(user.id)
       if (data) setProfile(data)
     }
-    getData()
+    load()
   }, [])
 
   return (
     <main className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f4c5c 0%, #0a3340 100%)' }}>
-
       <Navbar />
-
       <div className="px-8 py-12 max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold text-white mb-2">
-          Welcome back! 🐱
-        </h1>
+        <h1 className="text-4xl font-bold text-white mb-2">Welcome back! 🐱</h1>
         <p className="text-gray-400 text-lg mb-12">What are we cooking today?</p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -70,8 +53,7 @@ export default function Dashboard() {
               { label: 'Protein', value: profile ? `${profile.daily_protein}g` : '...', emoji: '💪' },
               { label: 'Restrictions', value: profile?.restrictions || 'None', emoji: '🚫' },
             ].map((goal) => (
-              <div key={goal.label} className="text-center p-4 rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.05)' }}>
+              <div key={goal.label} className="text-center p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)' }}>
                 <div className="text-2xl mb-1">{goal.emoji}</div>
                 <div className="text-white font-bold">{goal.value}</div>
                 <div className="text-gray-400 text-xs mt-1">{goal.label}</div>
