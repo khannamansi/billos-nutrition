@@ -20,13 +20,11 @@ export default function Pantry() {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
       if (user) {
-        const { data } = await supabase
-          .from('pantry_items')
-          .select('item_name, is_stocked')
-          .eq('user_id', user.id)
-        if (data) {
+        const res = await fetch('/api/pantry')
+        if (res.ok) {
+          const data = await res.json()
           const map: StockedMap = {}
-          data.forEach((row) => { map[row.item_name] = row.is_stocked })
+          data.forEach((row: any) => { map[row.item_name] = row.is_stocked })
           setStocked(map)
         }
       }
@@ -43,17 +41,13 @@ export default function Pantry() {
   const handleSave = async () => {
     if (!user) return
     setSaving(true)
-    const upserts = Object.entries(stocked).map(([item_name, is_stocked]) => ({
-      user_id: user.id,
-      item_name,
-      category: PANTRY_CATEGORIES.find((c) => c.items.includes(item_name))?.name ?? 'Other',
-      is_stocked,
-      updated_at: new Date().toISOString(),
-    }))
-    await supabase.from('pantry_items').upsert(upserts, { onConflict: 'user_id,item_name' })
+    const res = await fetch('/api/pantry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stocked }),
+    })
     setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2000) }
   }
 
   const stockedCount = Object.values(stocked).filter(Boolean).length

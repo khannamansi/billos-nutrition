@@ -1,12 +1,15 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { getProfile } from '../../lib/db/profile'
-import { getLatestShoppingList, saveShoppingList, type ShoppingItem } from '../../lib/db/shopping'
-import { getPantryItems, savePantryItems } from '../../lib/db/pantry'
 import Navbar from '../../components/Navbar'
 import ShoppingList from '../../components/ShoppingList'
 import { PANTRY_CATEGORIES } from '../../lib/pantryData'
+
+interface ShoppingItem {
+  name: string
+  category: string
+  checked: boolean
+}
 
 type StockedMap = Record<string, boolean>
 
@@ -14,7 +17,6 @@ export default function ShoppingPage() {
   const [tab, setTab] = useState<'shopping' | 'pantry'>('shopping')
   const [user, setUser] = useState<any>(null)
 
-  // Shopping state
   const [ingredients, setIngredients] = useState('')
   const [calories, setCalories] = useState(0)
   const [protein, setProtein] = useState(0)
@@ -26,7 +28,6 @@ export default function ShoppingPage() {
   const [message, setMessage] = useState('')
   const [guestPrompt, setGuestPrompt] = useState(false)
 
-  // Pantry state
   const [stocked, setStocked] = useState<StockedMap>({})
   const [search, setSearch] = useState('')
   const [pantrySaving, setPantrySaving] = useState(false)
@@ -39,19 +40,26 @@ export default function ShoppingPage() {
       setUser(user)
       if (!user) { setLoading(false); return }
 
-      const [{ data: profile }, { data: savedList }, { data: pantryData }] = await Promise.all([
-        getProfile(user.id),
-        getLatestShoppingList(user.id),
-        getPantryItems(user.id),
+      const [profileRes, listRes, pantryRes] = await Promise.all([
+        fetch('/api/profile'),
+        fetch('/api/shopping/list'),
+        fetch('/api/pantry'),
       ])
 
-      if (profile) {
-        setCalories(profile.daily_calories ?? 0)
-        setProtein(profile.daily_protein ?? 0)
-        setRestrictions(profile.restrictions ?? '')
+      if (profileRes.ok) {
+        const profile = await profileRes.json()
+        if (profile) {
+          setCalories(profile.daily_calories ?? 0)
+          setProtein(profile.daily_protein ?? 0)
+          setRestrictions(profile.restrictions ?? '')
+        }
       }
-      if (savedList?.items) setItems(savedList.items)
-      if (pantryData) {
+      if (listRes.ok) {
+        const list = await listRes.json()
+        if (list?.items) setItems(list.items)
+      }
+      if (pantryRes.ok) {
+        const pantryData = await pantryRes.json()
         const map: StockedMap = {}
         pantryData.forEach((row: any) => { map[row.item_name] = row.is_stocked })
         setStocked(map)
@@ -72,19 +80,15 @@ export default function ShoppingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ingredients, calories, protein, restrictions }),
       })
-
       if (!response.body) throw new Error('No response body')
-
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let accumulated = ''
-
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
         accumulated += decoder.decode(value)
       }
-
       const clean = accumulated.replace(/```json|```/g, '').trim()
       const parsed = JSON.parse(clean)
       if (parsed.items) setItems(parsed.items)
@@ -101,8 +105,12 @@ export default function ShoppingPage() {
   const handleSaveList = async () => {
     if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); return }
     setSaving(true)
-    const { error } = await saveShoppingList(user.id, items)
-    if (!error) { setMessage('Shopping list saved!'); setTimeout(() => setMessage(''), 2000) }
+    const res = await fetch('/api/shopping/list', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items }),
+    })
+    if (res.ok) { setMessage('Shopping list saved!'); setTimeout(() => setMessage(''), 2000) }
     setSaving(false)
   }
 
@@ -114,15 +122,13 @@ export default function ShoppingPage() {
   const handleSavePantry = async () => {
     if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); return }
     setPantrySaving(true)
-    const pantryItems = Object.entries(stocked).map(([item_name, is_stocked]) => ({
-      item_name,
-      category: PANTRY_CATEGORIES.find((c) => c.items.includes(item_name))?.name ?? 'Other',
-      is_stocked,
-    }))
-    await savePantryItems(user.id, pantryItems)
+    const res = await fetch('/api/pantry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stocked }),
+    })
+    if (res.ok) { setPantrySaved(true); setTimeout(() => setPantrySaved(false), 2000) }
     setPantrySaving(false)
-    setPantrySaved(true)
-    setTimeout(() => setPantrySaved(false), 2000)
   }
 
   const stockedCount = Object.values(stocked).filter(Boolean).length

@@ -2,10 +2,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 jest.mock('../../lib/supabase', () => ({
-  supabase: {
-    auth: { getUser: jest.fn() },
-    from: jest.fn(),
-  },
+  supabase: { auth: { getUser: jest.fn() } },
 }))
 
 jest.mock('@/components/Navbar', () => ({
@@ -22,23 +19,10 @@ const sampleMeals = [
   { id: 'm2', meal_name: 'Chicken Salad', calories: 450, protein: 35, logged_at: todayISO },
 ]
 
-let mockBuilder: any
-
 beforeEach(() => {
   jest.clearAllMocks()
-  mockBuilder = {
-    select: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
-    order: jest.fn().mockReturnThis(),
-    insert: jest.fn().mockReturnThis(),
-    delete: jest.fn().mockReturnThis(),
-    single: jest.fn().mockResolvedValue({ data: null, error: null }),
-    then: jest.fn().mockImplementation((resolve: any) =>
-      Promise.resolve({ data: null, error: null }).then(resolve)
-    ),
-  }
-  ;(supabase.from as jest.Mock).mockReturnValue(mockBuilder)
   ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: null } })
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue([]) }) as any
 })
 
 describe('HistoryPage', () => {
@@ -49,18 +33,13 @@ describe('HistoryPage', () => {
 
   it('shows empty state when user has no meals', async () => {
     ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockBuilder.then.mockImplementationOnce((resolve: any) =>
-      Promise.resolve({ data: [], error: null }).then(resolve)
-    )
     render(<HistoryPage />)
     await waitFor(() => expect(screen.getByText('No meals logged yet')).toBeInTheDocument())
   })
 
   it('renders meals list for logged-in user', async () => {
     ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockBuilder.then.mockImplementationOnce((resolve: any) =>
-      Promise.resolve({ data: sampleMeals, error: null }).then(resolve)
-    )
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue(sampleMeals) }) as any
     render(<HistoryPage />)
     await waitFor(() => expect(screen.getByText('Oatmeal')).toBeInTheDocument())
     expect(screen.getByText('Chicken Salad')).toBeInTheDocument()
@@ -68,9 +47,7 @@ describe('HistoryPage', () => {
 
   it('shows today calorie and protein totals', async () => {
     ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockBuilder.then.mockImplementationOnce((resolve: any) =>
-      Promise.resolve({ data: sampleMeals, error: null }).then(resolve)
-    )
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue(sampleMeals) }) as any
     render(<HistoryPage />)
     await waitFor(() => expect(screen.getByText('750')).toBeInTheDocument())
     expect(screen.getByText('45g')).toBeInTheDocument()
@@ -78,13 +55,10 @@ describe('HistoryPage', () => {
 
   it('adds a new meal', async () => {
     ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockBuilder.then.mockImplementation((resolve: any) =>
-      Promise.resolve({ data: [], error: null }).then(resolve)
-    )
-    mockBuilder.single.mockResolvedValue({
-      data: { id: 'm3', meal_name: 'Eggs', calories: 200, protein: 15, logged_at: todayISO },
-      error: null,
-    })
+    const newMeal = { id: 'm3', meal_name: 'Eggs', calories: 200, protein: 15, logged_at: todayISO }
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({ ok: true, json: jest.fn().mockResolvedValue([]) })
+      .mockResolvedValueOnce({ ok: true, json: jest.fn().mockResolvedValue(newMeal) }) as any
     render(<HistoryPage />)
     await waitFor(() => expect(screen.getByText('No meals logged yet')).toBeInTheDocument())
     fireEvent.click(screen.getByText('+ Log Meal'))
@@ -97,12 +71,12 @@ describe('HistoryPage', () => {
 
   it('deletes a meal from the list', async () => {
     ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockBuilder.then.mockImplementationOnce((resolve: any) =>
-      Promise.resolve({ data: sampleMeals, error: null }).then(resolve)
-    )
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({ ok: true, json: jest.fn().mockResolvedValue(sampleMeals) })
+      .mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue({ success: true }) }) as any
     render(<HistoryPage />)
     await waitFor(() => expect(screen.getByText('Oatmeal')).toBeInTheDocument())
-    fireEvent.click(screen.getAllByText('✕')[0])
+    fireEvent.click(screen.getAllByLabelText('Delete meal')[0])
     await waitFor(() => expect(screen.queryByText('Oatmeal')).not.toBeInTheDocument())
   })
 

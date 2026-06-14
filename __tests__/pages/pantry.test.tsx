@@ -2,10 +2,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 jest.mock('../../lib/supabase', () => ({
-  supabase: {
-    auth: { getUser: jest.fn() },
-    from: jest.fn(),
-  },
+  supabase: { auth: { getUser: jest.fn() } },
 }))
 
 jest.mock('../../components/Navbar', () => ({
@@ -21,20 +18,10 @@ jest.mock('../../components/Footer', () => ({
 import { supabase } from '../../lib/supabase'
 import PantryPage from '../../app/pantry/page'
 
-let mockBuilder: any
-
 beforeEach(() => {
   jest.clearAllMocks()
-  mockBuilder = {
-    select: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
-    upsert: jest.fn().mockResolvedValue({ data: null, error: null }),
-    then: jest.fn().mockImplementation((resolve: any) =>
-      Promise.resolve({ data: null, error: null }).then(resolve)
-    ),
-  }
-  ;(supabase.from as jest.Mock).mockReturnValue(mockBuilder)
   ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: null } })
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue([]) }) as any
 })
 
 describe('PantryPage', () => {
@@ -66,12 +53,10 @@ describe('PantryPage', () => {
 
   it('loads stocked items for logged-in user', async () => {
     ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockBuilder.then.mockImplementationOnce((resolve: any) =>
-      Promise.resolve({
-        data: [{ item_name: 'Chicken Breast', is_stocked: true }],
-        error: null,
-      }).then(resolve)
-    )
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue([{ item_name: 'Chicken Breast', is_stocked: true }]),
+    }) as any
     render(<PantryPage />)
     await waitFor(() => expect(screen.getByText('1 items stocked')).toBeInTheDocument())
   })
@@ -85,10 +70,14 @@ describe('PantryPage', () => {
 
   it('saves pantry for logged-in user', async () => {
     ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
+    global.fetch = jest.fn().mockImplementation((url: string, opts?: any) => {
+      if (opts?.method === 'POST') return Promise.resolve({ ok: true, json: async () => ({ success: true }) })
+      return Promise.resolve({ ok: true, json: async () => [] })
+    }) as any
     render(<PantryPage />)
     await waitFor(() => expect(screen.getByText('💾 Save')).toBeInTheDocument())
     fireEvent.click(screen.getByText('💾 Save'))
-    await waitFor(() => expect(mockBuilder.upsert).toHaveBeenCalled())
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/pantry', expect.objectContaining({ method: 'POST' })))
   })
 
   it('filters items by search term', async () => {

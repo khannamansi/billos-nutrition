@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { getProfile, upsertProfile } from '../../lib/db/profile'
 
 export default function Onboarding() {
   const [calories, setCalories] = useState(1400)
@@ -14,11 +13,14 @@ export default function Onboarding() {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { window.location.href = '/auth/login'; return }
-      const { data } = await getProfile(user.id)
-      if (data) {
-        setCalories(data.daily_calories ?? 1400)
-        setProtein(data.daily_protein ?? 120)
-        setRestrictions(data.restrictions ?? '')
+      const res = await fetch('/api/profile')
+      if (res.ok) {
+        const data = await res.json()
+        if (data) {
+          setCalories(data.daily_calories ?? 1400)
+          setProtein(data.daily_protein ?? 120)
+          setRestrictions(data.restrictions ?? '')
+        }
       }
     }
     load()
@@ -27,20 +29,17 @@ export default function Onboarding() {
   const handleSave = async () => {
     setLoading(true)
     setMessage('')
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { error } = await upsertProfile(user.id, {
-      daily_calories: calories,
-      daily_protein: protein,
-      restrictions,
+    const res = await fetch('/api/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ daily_calories: calories, daily_protein: protein, restrictions }),
     })
-
-    if (error) {
-      setMessage('Error saving — ' + error.message)
-    } else {
+    if (res.ok) {
       setMessage('Goals saved!')
       setTimeout(() => { window.location.href = '/dashboard' }, 1000)
+    } else {
+      const data = await res.json()
+      setMessage('Error saving — ' + (data.error ?? 'Unknown error'))
     }
     setLoading(false)
   }

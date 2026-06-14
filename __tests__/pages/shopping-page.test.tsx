@@ -2,10 +2,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 jest.mock('../../lib/supabase', () => ({
-  supabase: {
-    auth: { getUser: jest.fn() },
-    from: jest.fn(),
-  },
+  supabase: { auth: { getUser: jest.fn() } },
 }))
 
 jest.mock('../../components/Navbar', () => ({
@@ -26,35 +23,27 @@ const mockItems = [
   { name: 'Broccoli', category: 'Vegetables', checked: false },
 ]
 
-let mockBuilder: any
-
-beforeEach(() => {
-  jest.clearAllMocks()
-  mockBuilder = {
-    select: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
-    order: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    insert: jest.fn().mockReturnThis(),
-    upsert: jest.fn().mockResolvedValue({ data: null, error: null }),
-    single: jest.fn().mockResolvedValue({ data: null, error: null }),
-    then: jest.fn().mockImplementation((resolve: any) =>
-      Promise.resolve({ data: null, error: null }).then(resolve)
-    ),
-  }
-  ;(supabase.from as jest.Mock).mockReturnValue(mockBuilder)
-  ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: null } })
-  const encoder = new TextEncoder()
-  const encoded = encoder.encode(JSON.stringify({ items: mockItems }))
+function makeStreamingMock(payload: object) {
+  const encoded = new TextEncoder().encode(JSON.stringify(payload))
   const mockReader = {
     read: jest.fn()
       .mockResolvedValueOnce({ done: false, value: encoded })
       .mockResolvedValue({ done: true, value: undefined }),
   }
-  global.fetch = jest.fn().mockResolvedValue({
-    ok: true,
-    body: { getReader: () => mockReader },
-  }) as any
+  return { ok: true, body: { getReader: () => mockReader } }
+}
+
+function makeDataFetch(url: string, opts?: any) {
+  if (url === '/api/profile') return Promise.resolve({ ok: true, json: async () => null })
+  if (url === '/api/shopping/list' && opts?.method !== 'POST') return Promise.resolve({ ok: true, json: async () => null })
+  if (url === '/api/pantry' && opts?.method !== 'POST') return Promise.resolve({ ok: true, json: async () => [] })
+  return Promise.resolve({ ok: true, json: async () => ({ success: true }) })
+}
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: null } })
+  global.fetch = jest.fn().mockImplementation(makeDataFetch) as any
 })
 
 describe('ShoppingPage — Shopping tab', () => {
@@ -72,12 +61,15 @@ describe('ShoppingPage — Shopping tab', () => {
 
   it('generates list for logged-in user', async () => {
     ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockBuilder.single
-      .mockResolvedValueOnce({ data: { daily_calories: 2000, daily_protein: 150, restrictions: '' }, error: null })
-      .mockResolvedValueOnce({ data: null, error: null })
+    global.fetch = jest.fn().mockImplementation((url: string, opts?: any) => {
+      if (url === '/api/profile') return Promise.resolve({ ok: true, json: async () => ({ daily_calories: 2000, daily_protein: 150, restrictions: '' }) })
+      if (url === '/api/shopping/list' && opts?.method !== 'POST') return Promise.resolve({ ok: true, json: async () => null })
+      if (url === '/api/pantry' && opts?.method !== 'POST') return Promise.resolve({ ok: true, json: async () => [] })
+      if (url === '/api/shopping') return Promise.resolve(makeStreamingMock({ items: mockItems }))
+      return Promise.resolve({ ok: true, json: async () => ({ success: true }) })
+    }) as any
     render(<ShoppingPage />)
-    // wait for full loadData (then = pantry query, the last async call)
-    await waitFor(() => expect(mockBuilder.then).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getByText('✨ Generate Shopping List')).toBeInTheDocument())
     fireEvent.click(screen.getByText('✨ Generate Shopping List'))
     await waitFor(() => expect(screen.getByText('Chicken Breast')).toBeInTheDocument())
     expect(screen.getByText('Broccoli')).toBeInTheDocument()
@@ -85,11 +77,15 @@ describe('ShoppingPage — Shopping tab', () => {
 
   it('toggles a shopping item as checked', async () => {
     ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockBuilder.single
-      .mockResolvedValueOnce({ data: { daily_calories: 2000, daily_protein: 150, restrictions: '' }, error: null })
-      .mockResolvedValueOnce({ data: null, error: null })
+    global.fetch = jest.fn().mockImplementation((url: string, opts?: any) => {
+      if (url === '/api/profile') return Promise.resolve({ ok: true, json: async () => ({ daily_calories: 2000, daily_protein: 150, restrictions: '' }) })
+      if (url === '/api/shopping/list' && opts?.method !== 'POST') return Promise.resolve({ ok: true, json: async () => null })
+      if (url === '/api/pantry' && opts?.method !== 'POST') return Promise.resolve({ ok: true, json: async () => [] })
+      if (url === '/api/shopping') return Promise.resolve(makeStreamingMock({ items: mockItems }))
+      return Promise.resolve({ ok: true, json: async () => ({ success: true }) })
+    }) as any
     render(<ShoppingPage />)
-    await waitFor(() => expect(mockBuilder.then).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getByText('✨ Generate Shopping List')).toBeInTheDocument())
     fireEvent.click(screen.getByText('✨ Generate Shopping List'))
     await waitFor(() => expect(screen.getByText('Chicken Breast')).toBeInTheDocument())
     fireEvent.click(screen.getByText('Chicken Breast').closest('div')!)
@@ -98,11 +94,15 @@ describe('ShoppingPage — Shopping tab', () => {
 
   it('saves shopping list', async () => {
     ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockBuilder.single
-      .mockResolvedValueOnce({ data: { daily_calories: 2000, daily_protein: 150, restrictions: '' }, error: null })
-      .mockResolvedValueOnce({ data: null, error: null })
+    global.fetch = jest.fn().mockImplementation((url: string, opts?: any) => {
+      if (url === '/api/profile') return Promise.resolve({ ok: true, json: async () => ({ daily_calories: 2000, daily_protein: 150, restrictions: '' }) })
+      if (url === '/api/shopping/list' && opts?.method !== 'POST') return Promise.resolve({ ok: true, json: async () => null })
+      if (url === '/api/pantry' && opts?.method !== 'POST') return Promise.resolve({ ok: true, json: async () => [] })
+      if (url === '/api/shopping') return Promise.resolve(makeStreamingMock({ items: mockItems }))
+      return Promise.resolve({ ok: true, json: async () => ({ success: true }) })
+    }) as any
     render(<ShoppingPage />)
-    await waitFor(() => expect(mockBuilder.then).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getByText('✨ Generate Shopping List')).toBeInTheDocument())
     fireEvent.click(screen.getByText('✨ Generate Shopping List'))
     await waitFor(() => expect(screen.getByText('Chicken Breast')).toBeInTheDocument())
     fireEvent.click(screen.getByText('💾 Save List'))
@@ -156,6 +156,8 @@ describe('ShoppingPage — Pantry tab', () => {
     fireEvent.click(screen.getByText('🥦 My Pantry'))
     await waitFor(() => expect(screen.getByText('💾 Save')).toBeInTheDocument())
     fireEvent.click(screen.getByText('💾 Save'))
-    await waitFor(() => expect(mockBuilder.upsert).toHaveBeenCalled())
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith('/api/pantry', expect.objectContaining({ method: 'POST' }))
+    )
   })
 })

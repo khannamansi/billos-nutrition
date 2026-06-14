@@ -1,18 +1,23 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { getProfile, type DietProfile } from '../../lib/db/profile'
 import Navbar from '../../components/Navbar'
 
+interface Profile {
+  daily_calories: number
+  daily_protein: number
+  restrictions: string
+}
+
 export default function Dashboard() {
-  const [profile, setProfile] = useState<DietProfile | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await getProfile(user.id)
-      if (data) setProfile(data)
+      const res = await fetch('/api/profile')
+      if (res.ok) setProfile(await res.json())
     }
     load()
   }, [])

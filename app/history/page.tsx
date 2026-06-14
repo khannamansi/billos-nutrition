@@ -1,9 +1,16 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
-import { getMealHistory, logMeal, deleteMeal, type MealEntry } from '../../lib/db/meals'
 import Navbar from '@/components/Navbar'
 import MealHistoryCard from '@/components/MealHistoryCard'
+
+interface MealEntry {
+  id: string
+  meal_name: string
+  calories: number
+  protein: number
+  logged_at: string
+}
 
 interface FoodResult {
   fdcId: number
@@ -24,7 +31,6 @@ export default function HistoryPage() {
   const [user, setUser] = useState<any>(null)
   const [guestPrompt, setGuestPrompt] = useState(false)
 
-  // USDA search
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<FoodResult[]>([])
   const [searching, setSearching] = useState(false)
@@ -36,14 +42,13 @@ export default function HistoryPage() {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
       if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); setLoading(false); return }
-      const { data } = await getMealHistory(user.id)
-      if (data) setMeals(data)
+      const res = await fetch('/api/meals')
+      if (res.ok) setMeals(await res.json())
       setLoading(false)
     }
     init()
   }, [])
 
-  // Debounced USDA search
   useEffect(() => {
     if (searchRef.current) clearTimeout(searchRef.current)
     if (query.length < 2) { setResults([]); setShowResults(false); return }
@@ -87,17 +92,19 @@ export default function HistoryPage() {
 
   const addMeal = async () => {
     if (!mealName.trim()) return
+    if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); return }
     setAdding(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); setAdding(false); return }
-
-    const { data, error } = await logMeal(user.id, {
-      meal_name: mealName,
-      calories: parseInt(calories) || 0,
-      protein: parseInt(protein) || 0,
+    const res = await fetch('/api/meals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        meal_name: mealName,
+        calories: parseInt(calories) || 0,
+        protein: parseInt(protein) || 0,
+      }),
     })
-
-    if (!error && data) {
+    if (res.ok) {
+      const data = await res.json()
       setMeals([data, ...meals])
       setMealName('')
       setCalories('')
@@ -109,7 +116,7 @@ export default function HistoryPage() {
   }
 
   const handleDelete = async (id: string) => {
-    await deleteMeal(id)
+    await fetch(`/api/meals/${id}`, { method: 'DELETE' })
     setMeals((prev) => prev.filter((m) => m.id !== id))
   }
 
@@ -165,7 +172,6 @@ export default function HistoryPage() {
             style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(212,175,55,0.3)' }}>
             <h3 className="text-white font-bold mb-4">Log a Meal</h3>
 
-            {/* USDA search */}
             <div className="relative mb-3">
               <input
                 type="text"
@@ -197,43 +203,25 @@ export default function HistoryPage() {
             </div>
 
             <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Meal name"
-                value={mealName}
+              <input type="text" placeholder="Meal name" value={mealName}
                 onChange={(e) => setMealName(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl text-white placeholder-gray-400 border border-white/20 focus:outline-none focus:border-yellow-400"
-                style={{ background: 'rgba(255,255,255,0.1)' }}
-              />
+                style={{ background: 'rgba(255,255,255,0.1)' }} />
               <div className="grid grid-cols-3 gap-3">
-                <input
-                  type="number"
-                  placeholder="Calories"
-                  value={calories}
+                <input type="number" placeholder="Calories" value={calories}
                   onChange={(e) => setCalories(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl text-white placeholder-gray-400 border border-white/20 focus:outline-none focus:border-yellow-400"
-                  style={{ background: 'rgba(255,255,255,0.1)' }}
-                />
-                <input
-                  type="number"
-                  placeholder="Protein (g)"
-                  value={protein}
+                  style={{ background: 'rgba(255,255,255,0.1)' }} />
+                <input type="number" placeholder="Protein (g)" value={protein}
                   onChange={(e) => setProtein(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl text-white placeholder-gray-400 border border-white/20 focus:outline-none focus:border-yellow-400"
-                  style={{ background: 'rgba(255,255,255,0.1)' }}
-                />
-                <input
-                  type="number"
-                  placeholder="Serving (g)"
-                  value={serving}
+                  style={{ background: 'rgba(255,255,255,0.1)' }} />
+                <input type="number" placeholder="Serving (g)" value={serving}
                   onChange={(e) => recalcServing(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl text-white placeholder-gray-400 border border-white/20 focus:outline-none focus:border-yellow-400"
-                  style={{ background: 'rgba(255,255,255,0.1)' }}
-                />
+                  style={{ background: 'rgba(255,255,255,0.1)' }} />
               </div>
-              <button
-                onClick={addMeal}
-                disabled={adding || !mealName.trim()}
+              <button onClick={addMeal} disabled={adding || !mealName.trim()}
                 className="w-full py-3 rounded-xl font-bold transition disabled:opacity-50"
                 style={{ background: '#D4AF37', color: '#0a3340' }}>
                 {adding ? 'Logging...' : '✅ Log Meal'}

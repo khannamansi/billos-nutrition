@@ -2,10 +2,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 jest.mock('../../lib/supabase', () => ({
-  supabase: {
-    auth: { getUser: jest.fn() },
-    from: jest.fn(),
-  },
+  supabase: { auth: { getUser: jest.fn() } },
 }))
 
 jest.mock('@/components/Navbar', () => ({
@@ -28,21 +25,10 @@ const sampleRecipes = [
   },
 ]
 
-let mockBuilder: any
-
 beforeEach(() => {
   jest.clearAllMocks()
-  mockBuilder = {
-    select: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
-    order: jest.fn().mockReturnThis(),
-    delete: jest.fn().mockReturnThis(),
-    then: jest.fn().mockImplementation((resolve: any) =>
-      Promise.resolve({ data: null, error: null }).then(resolve)
-    ),
-  }
-  ;(supabase.from as jest.Mock).mockReturnValue(mockBuilder)
   ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: null } })
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue([]) }) as any
 })
 
 describe('SavedPage', () => {
@@ -53,9 +39,7 @@ describe('SavedPage', () => {
 
   it('renders saved recipes for logged-in user', async () => {
     ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockBuilder.then.mockImplementationOnce((resolve: any) =>
-      Promise.resolve({ data: sampleRecipes, error: null }).then(resolve)
-    )
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue(sampleRecipes) }) as any
     render(<SavedPage />)
     await waitFor(() => expect(screen.getByText('Chicken Bowl')).toBeInTheDocument())
     expect(screen.getByText('Cook and serve.')).toBeInTheDocument()
@@ -64,9 +48,7 @@ describe('SavedPage', () => {
 
   it('shows calorie and protein badges', async () => {
     ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockBuilder.then.mockImplementationOnce((resolve: any) =>
-      Promise.resolve({ data: sampleRecipes, error: null }).then(resolve)
-    )
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue(sampleRecipes) }) as any
     render(<SavedPage />)
     await waitFor(() => expect(screen.getByText('🔥 500 kcal')).toBeInTheDocument())
     expect(screen.getByText('💪 40g protein')).toBeInTheDocument()
@@ -74,9 +56,9 @@ describe('SavedPage', () => {
 
   it('removes a recipe on delete', async () => {
     ;(supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'u1' } } })
-    mockBuilder.then.mockImplementationOnce((resolve: any) =>
-      Promise.resolve({ data: sampleRecipes, error: null }).then(resolve)
-    )
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({ ok: true, json: jest.fn().mockResolvedValue(sampleRecipes) })
+      .mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue({ success: true }) }) as any
     render(<SavedPage />)
     await waitFor(() => expect(screen.getByText('Chicken Bowl')).toBeInTheDocument())
     fireEvent.click(screen.getByText('🗑️ Remove'))

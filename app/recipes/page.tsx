@@ -1,8 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { getProfile } from '../../lib/db/profile'
-import { saveRecipe } from '../../lib/db/recipes'
 import Navbar from '@/components/Navbar'
 import RecipeCard from '@/components/RecipeCard'
 
@@ -10,7 +8,7 @@ interface Recipe {
   name: string
   calories: number
   protein: number
-  prepTime: string
+  prepTime?: string
   ingredients: string
   instructions: string
 }
@@ -33,11 +31,14 @@ export default function RecipesPage() {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
       if (!user) return
-      const { data } = await getProfile(user.id)
-      if (data) {
-        setCalories(data.daily_calories ?? 0)
-        setProtein(data.daily_protein ?? 0)
-        setRestrictions(data.restrictions ?? '')
+      const res = await fetch('/api/profile')
+      if (res.ok) {
+        const data = await res.json()
+        if (data) {
+          setCalories(data.daily_calories ?? 0)
+          setProtein(data.daily_protein ?? 0)
+          setRestrictions(data.restrictions ?? '')
+        }
       }
     }
     init()
@@ -86,11 +87,14 @@ export default function RecipesPage() {
   }
 
   const handleSave = async (recipe: Recipe) => {
+    if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); return }
     setSaving(recipe.name)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); setSaving(null); return }
-    const { error } = await saveRecipe(user.id, recipe)
-    if (!error) setSavedNames((prev) => new Set(prev).add(recipe.name))
+    const res = await fetch('/api/recipes/saved', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(recipe),
+    })
+    if (res.ok) setSavedNames((prev) => new Set(prev).add(recipe.name))
     setSaving(null)
   }
 
