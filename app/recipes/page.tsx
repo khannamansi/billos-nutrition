@@ -21,11 +21,14 @@ export default function RecipesPage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState<string | null>(null)
   const [savedMessage, setSavedMessage] = useState<string | null>(null)
+  const [user, setUser] = useState<any>(null)
+  const [guestPrompt, setGuestPrompt] = useState(false)
 
   useEffect(() => {
     const loadProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return // guest — allow through
+      setUser(user)
+      if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); return }
 
       const { data } = await supabase
         .from('diet_profiles')
@@ -43,6 +46,7 @@ export default function RecipesPage() {
   }, [])
 
   const generateRecipes = async () => {
+    if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); return }
     if (!ingredients.trim()) return
     setLoading(true)
     setRecipes([])
@@ -64,7 +68,7 @@ export default function RecipesPage() {
   const saveRecipe = async (recipe: Recipe) => {
     setSaving(recipe.name)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); return }
 
     const { error } = await supabase.from('saved_recipes').insert({
       user_id: user.id,

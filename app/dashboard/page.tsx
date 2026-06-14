@@ -44,7 +44,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
             { emoji: '🍳', title: 'Get Recipes', desc: 'Generate recipes from your fridge', href: '/recipes', color: '#D4AF37' },
-            { emoji: '🛒', title: 'Shopping List', desc: 'Build your weekly staples', href: '/shopping', color: '#4ade80' },
+            { emoji: '🛒', title: 'Pantry & Shopping', desc: 'Manage your pantry & build your shopping list', href: '/shopping', color: '#60a5fa' },
             { emoji: '❤️', title: 'Saved Recipes', desc: 'Your favorite recipes', href: '/saved', color: '#f87171' },
             { emoji: '📊', title: 'Meal History', desc: 'Track what you have eaten', href: '/history', color: '#60a5fa' },
           ].map((item) => (

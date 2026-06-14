@@ -21,7 +21,7 @@ export default function SavedPage() {
   useEffect(() => {
     const loadSaved = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return // guest — allow through
+      if (!user) { setLoading(false); return }
 
       const { data } = await supabase
         .from('saved_recipes')
