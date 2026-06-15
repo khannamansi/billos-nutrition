@@ -3,22 +3,22 @@ import { NextResponse } from 'next/server'
 
 export const RecipeGenerationSchema = z.object({
   ingredients: z.string().min(1, 'Ingredients are required').max(500, 'Ingredients too long'),
-  calories: z.number({ invalid_type_error: 'Calories must be a number' }).int().min(0).max(10000),
-  protein: z.number({ invalid_type_error: 'Protein must be a number' }).int().min(0).max(500),
+  calories: z.number({ error: 'Calories must be a number' }).int().min(0).max(10000),
+  protein: z.number({ error: 'Protein must be a number' }).int().min(0).max(500),
   restrictions: z.string().max(200).optional().default(''),
 })
 
 export const ShoppingGenerationSchema = z.object({
   ingredients: z.string().max(500).optional().default(''),
-  calories: z.number({ invalid_type_error: 'Calories must be a number' }).int().min(0).max(10000),
-  protein: z.number({ invalid_type_error: 'Protein must be a number' }).int().min(0).max(500),
+  calories: z.number({ error: 'Calories must be a number' }).int().min(0).max(10000),
+  protein: z.number({ error: 'Protein must be a number' }).int().min(0).max(500),
   restrictions: z.string().max(200).optional().default(''),
 })
 
 export const MealSchema = z.object({
   meal_name: z.string().min(1, 'Meal name is required').max(200),
-  calories: z.number({ invalid_type_error: 'Calories must be a number' }).int().min(0).max(10000),
-  protein: z.number({ invalid_type_error: 'Protein must be a number' }).int().min(0).max(500),
+  calories: z.number({ error: 'Calories must be a number' }).int().min(0).max(10000),
+  protein: z.number({ error: 'Protein must be a number' }).int().min(0).max(500),
   meal_type: z.enum(['breakfast', 'lunch', 'snacks', 'dinner']).optional(),
 })
 

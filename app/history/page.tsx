@@ -53,6 +53,7 @@ export default function HistoryPage() {
   const [serving, setServing] = useState('100')
   const [mealType, setMealType] = useState<MealType>('breakfast')
   const [adding, setAdding] = useState(false)
+  const [added, setAdded] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [guestPrompt, setGuestPrompt] = useState(false)
 
@@ -147,7 +148,9 @@ export default function HistoryPage() {
       setCalories('')
       setProtein('')
       setServing('100')
-      setShowForm(false)
+      setQuery('')
+      setAdded(true)
+      setTimeout(() => setAdded(false), 2000)
     }
     setAdding(false)
   }
@@ -285,8 +288,8 @@ export default function HistoryPage() {
               </div>
               <button onClick={addMeal} disabled={adding || !mealName.trim()}
                 className="w-full py-3 rounded-xl font-bold transition disabled:opacity-50"
-                style={{ background: '#D4AF37', color: '#0a3340' }}>
-                {adding ? 'Logging...' : '✅ Log Meal'}
+                style={{ background: added ? '#4ade80' : '#D4AF37', color: '#0a3340' }}>
+                {adding ? 'Logging...' : added ? '✓ Added! Log another?' : '✅ Log Meal'}
               </button>
             </div>
           </div>
