@@ -79,7 +79,7 @@ describe('Profile API — POST', () => {
     mockBuilder.upsert.mockResolvedValue({ error: { message: 'fail' } })
     const req = new Request('http://localhost/api/profile', {
       method: 'POST',
-      body: JSON.stringify({ daily_calories: 2000 }),
+      body: JSON.stringify({ daily_calories: 2000, daily_protein: 150 }),
     })
     const res = await POST(req)
     expect(res.status).toBe(500)

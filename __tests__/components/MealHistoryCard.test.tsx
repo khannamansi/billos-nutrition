@@ -29,9 +29,9 @@ describe('MealHistoryCard', () => {
     expect(onDelete).toHaveBeenCalledWith('m1')
   })
 
-  it('renders date and time', () => {
+  it('renders time of log entry', () => {
     render(<MealHistoryCard meal={meal} onDelete={jest.fn()} />)
-    const today = new Date().toLocaleDateString([], { month: 'short', day: 'numeric' })
-    expect(screen.getByText(new RegExp(today))).toBeInTheDocument()
+    const timeStr = new Date(meal.logged_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    expect(screen.getByText(timeStr)).toBeInTheDocument()
   })
 })

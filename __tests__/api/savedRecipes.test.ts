@@ -85,7 +85,7 @@ describe('Saved Recipes API — POST', () => {
     mockBuilder.single.mockResolvedValue({ data: mockRecipe, error: null })
     const req = new Request('http://localhost/api/recipes/saved', {
       method: 'POST',
-      body: JSON.stringify({ title: 'Grilled Chicken', calories: 400, protein: 45 }),
+      body: JSON.stringify({ name: 'Grilled Chicken', calories: 400, protein: 45, ingredients: 'Chicken', instructions: 'Grill it' }),
     })
     const res = await POST(req)
     expect(res.status).toBe(200)
@@ -96,7 +96,7 @@ describe('Saved Recipes API — POST', () => {
     mockBuilder.single.mockResolvedValue({ data: null, error: { message: 'fail' } })
     const req = new Request('http://localhost/api/recipes/saved', {
       method: 'POST',
-      body: JSON.stringify({ title: 'Grilled Chicken' }),
+      body: JSON.stringify({ name: 'Grilled Chicken', calories: 400, protein: 45, ingredients: 'Chicken', instructions: 'Grill it' }),
     })
     const res = await POST(req)
     expect(res.status).toBe(500)

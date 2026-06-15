@@ -10,8 +10,8 @@ import { DELETE } from '../../app/api/meals/[id]/route'
 
 const mockUser = { id: 'user1' }
 const mockMeals = [
-  { id: 'm1', meal_name: 'Oatmeal', calories: 300, protein: 10, logged_at: new Date().toISOString() },
-  { id: 'm2', meal_name: 'Chicken', calories: 450, protein: 40, logged_at: new Date().toISOString() },
+  { id: 'm1', meal_name: 'Oatmeal', calories: 300, protein: 10, logged_at: new Date().toISOString(), meal_type: 'breakfast' },
+  { id: 'm2', meal_name: 'Chicken', calories: 450, protein: 40, logged_at: new Date().toISOString(), meal_type: 'lunch' },
 ]
 
 const mockSupabase = { auth: { getUser: jest.fn() }, from: jest.fn() }
@@ -90,6 +90,27 @@ describe('Meals API — POST', () => {
     const res = await POST(req)
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual(newMeal)
+  })
+
+  it('logs a meal with meal_type and returns it', async () => {
+    const newMeal = { id: 'm4', meal_name: 'Pancakes', calories: 350, protein: 12, meal_type: 'breakfast' }
+    mockBuilder.single.mockResolvedValue({ data: newMeal, error: null })
+    const req = new Request('http://localhost/api/meals', {
+      method: 'POST',
+      body: JSON.stringify({ meal_name: 'Pancakes', calories: 350, protein: 12, meal_type: 'breakfast' }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual(newMeal)
+  })
+
+  it('returns 400 for invalid meal_type', async () => {
+    const req = new Request('http://localhost/api/meals', {
+      method: 'POST',
+      body: JSON.stringify({ meal_name: 'Pancakes', calories: 350, protein: 12, meal_type: 'brunch' }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(400)
   })
 
   it('returns 500 on db error', async () => {

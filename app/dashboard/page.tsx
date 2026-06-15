@@ -1,6 +1,8 @@
 'use client'
-import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import useSWR from 'swr'
 import { useUser } from '../../lib/UserContext'
+import { fetcher } from '../../lib/fetcher'
 import Navbar from '../../components/Navbar'
 
 interface Profile {
@@ -10,15 +12,8 @@ interface Profile {
 }
 
 export default function Dashboard() {
-  const { user, loading: authLoading } = useUser()
-  const [profile, setProfile] = useState<Profile | null>(null)
-
-  useEffect(() => {
-    if (authLoading || !user) return
-    fetch('/api/profile').then(res => res.ok ? res.json() : null).then(data => {
-      if (data) setProfile(data)
-    })
-  }, [user, authLoading])
+  const { user } = useUser()
+  const { data: profile } = useSWR<Profile>(user ? '/api/profile' : null, fetcher)
 
   return (
     <main className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f4c5c 0%, #0a3340 100%)' }}>
@@ -34,13 +29,13 @@ export default function Dashboard() {
             { emoji: '❤️', title: 'Saved Recipes', desc: 'Your favorite recipes', href: '/saved', color: '#f87171' },
             { emoji: '📊', title: 'Meal History', desc: 'Track what you have eaten', href: '/history', color: '#60a5fa' },
           ].map((item) => (
-            <a key={item.title} href={item.href}
+            <Link key={item.title} href={item.href}
               className="rounded-2xl p-6 cursor-pointer transition hover:scale-105"
               style={{ background: 'rgba(255,255,255,0.08)', border: `1px solid ${item.color}40` }}>
               <div className="text-4xl mb-4">{item.emoji}</div>
               <h3 className="text-white font-bold text-lg mb-1">{item.title}</h3>
               <p className="text-gray-400 text-sm">{item.desc}</p>
-            </a>
+            </Link>
           ))}
         </div>
 
@@ -48,7 +43,7 @@ export default function Dashboard() {
           style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }}>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-white font-bold text-xl">Your Daily Goals</h2>
-            <a href="/onboarding" className="text-sm font-semibold" style={{ color: '#D4AF37' }}>Edit Goals →</a>
+            <Link href="/onboarding" className="text-sm font-semibold" style={{ color: '#D4AF37' }}>Edit Goals →</Link>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {[

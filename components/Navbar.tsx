@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { supabase } from '../lib/supabase'
 import { useUser } from '../lib/UserContext'
 
@@ -21,17 +22,17 @@ export default function Navbar({ active }: NavbarProps) {
 
   return (
     <nav className="flex justify-between items-center px-8 py-5 border-b border-white/10">
-      <a href={user ? '/dashboard' : '/'} className="flex items-center gap-2">
+      <Link href={user ? '/dashboard' : '/'} className="flex items-center gap-2">
         <span className="text-2xl">🐱</span>
         <span className="text-white font-bold text-lg">Billo's <span style={{color: '#D4AF37'}}>Nutrition</span></span>
-      </a>
+      </Link>
       <div className="flex items-center gap-6">
         {links.map(link => (
-          <a key={link.key} href={link.href}
+          <Link key={link.key} href={link.href}
             className="text-sm transition font-medium"
             style={{ color: active === link.key ? '#D4AF37' : '#ffffff' }}>
             {link.label}
-          </a>
+          </Link>
         ))}
         {user ? (
           <button
@@ -41,11 +42,11 @@ export default function Navbar({ active }: NavbarProps) {
             Sign Out
           </button>
         ) : (
-          <a href="/auth/login"
+          <Link href="/auth/login"
             className="px-4 py-2 rounded-full text-sm font-semibold"
             style={{ background: '#D4AF37', color: '#0a3340' }}>
             Sign In
-          </a>
+          </Link>
         )}
       </div>
     </nav>

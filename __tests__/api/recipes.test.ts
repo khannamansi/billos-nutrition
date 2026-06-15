@@ -1,18 +1,12 @@
-import { NextRequest } from 'next/server'
-import { POST } from '../../app/api/recipes/route'
+/** @jest-environment node */
 
-const mockRecipeJSON = JSON.stringify({
-  recipes: [
-    {
-      name: 'Test Recipe',
-      calories: 400,
-      protein: 30,
-      prepTime: '15 minutes',
-      ingredients: 'chicken, broccoli',
-      instructions: 'Step 1: Cook. Step 2: Serve.',
-    },
-  ],
-})
+jest.mock('../../lib/supabase-server', () => ({
+  createSupabaseServer: jest.fn(),
+}))
+
+jest.mock('../../lib/ratelimit', () => ({
+  ratelimit: { limit: jest.fn() },
+}))
 
 jest.mock('../../lib/langchain', () => ({
   createModel: jest.fn().mockReturnValue({
@@ -34,6 +28,34 @@ jest.mock('@langchain/core/prompts', () => ({
   },
 }))
 
+import { NextRequest } from 'next/server'
+import { POST } from '../../app/api/recipes/route'
+import { createSupabaseServer } from '../../lib/supabase-server'
+import { ratelimit } from '../../lib/ratelimit'
+
+const mockRecipeJSON = JSON.stringify({
+  recipes: [
+    {
+      name: 'Test Recipe',
+      calories: 400,
+      protein: 30,
+      prepTime: '15 minutes',
+      ingredients: 'chicken, broccoli',
+      instructions: 'Step 1: Cook. Step 2: Serve.',
+    },
+  ],
+})
+
+const mockUser = { id: 'user1' }
+const mockSupabase = { auth: { getUser: jest.fn() } }
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  ;(createSupabaseServer as jest.Mock).mockResolvedValue(mockSupabase)
+  mockSupabase.auth.getUser.mockResolvedValue({ data: { user: mockUser } })
+  ;(ratelimit.limit as jest.Mock).mockResolvedValue({ success: true, limit: 10, remaining: 9, reset: Date.now() + 3600000 })
+})
+
 async function readStreamText(response: Response): Promise<string> {
   const reader = response.body!.getReader()
   const decoder = new TextDecoder()
@@ -47,6 +69,26 @@ async function readStreamText(response: Response): Promise<string> {
 }
 
 describe('Recipe API', () => {
+  it('returns 401 when not authenticated', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: null } })
+    const request = new NextRequest('http://localhost/api/recipes', {
+      method: 'POST',
+      body: JSON.stringify({ ingredients: 'chicken', calories: 1400, protein: 120 }),
+    })
+    const response = await POST(request)
+    expect(response.status).toBe(401)
+  })
+
+  it('returns 429 when rate limited', async () => {
+    ;(ratelimit.limit as jest.Mock).mockResolvedValue({ success: false, limit: 10, remaining: 0, reset: Date.now() + 3600000 })
+    const request = new NextRequest('http://localhost/api/recipes', {
+      method: 'POST',
+      body: JSON.stringify({ ingredients: 'chicken', calories: 1400, protein: 120 }),
+    })
+    const response = await POST(request)
+    expect(response.status).toBe(429)
+  })
+
   it('returns recipes for valid input', async () => {
     const request = new NextRequest('http://localhost/api/recipes', {
       method: 'POST',

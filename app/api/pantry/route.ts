@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServer } from '../../../lib/supabase-server'
 import { PANTRY_CATEGORIES } from '../../../lib/pantryData'
+import { PantrySchema, badRequest } from '../../../lib/validation'
 
 async function getUser() {
   const supabase = await createSupabaseServer()
@@ -25,7 +26,9 @@ export async function POST(request: Request) {
   const { supabase, user } = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { stocked } = await request.json()
+  const parsed = PantrySchema.safeParse(await request.json())
+  if (!parsed.success) return badRequest(parsed.error)
+  const { stocked } = parsed.data
   const upserts = Object.entries(stocked as Record<string, boolean>).map(([item_name, is_stocked]) => ({
     user_id: user!.id,
     item_name,

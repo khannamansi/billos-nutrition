@@ -1,17 +1,34 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
 import { createModel } from '../../../lib/langchain'
+import { RecipeGenerationSchema, badRequest } from '../../../lib/validation'
+import { createSupabaseServer } from '../../../lib/supabase-server'
+import { ratelimit } from '../../../lib/ratelimit'
 
 export async function POST(request: NextRequest) {
   try {
-    const { ingredients, calories, protein, restrictions } = await request.json()
+    const supabase = await createSupabaseServer()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    if (calories === undefined || protein === undefined) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: calories and protein' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+    const { success, limit, remaining, reset } = await ratelimit.limit(user.id)
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait before generating more recipes.' },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': String(limit),
+            'X-RateLimit-Remaining': String(remaining),
+            'X-RateLimit-Reset': String(reset),
+          },
+        }
       )
     }
+
+    const parsed = RecipeGenerationSchema.safeParse(await request.json())
+    if (!parsed.success) return badRequest(parsed.error)
+    const { ingredients, calories, protein, restrictions } = parsed.data
 
     const model = createModel(0.7)
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServer } from '../../../../lib/supabase-server'
+import { SavedRecipeSchema, badRequest } from '../../../../lib/validation'
 
 async function getUser() {
   const supabase = await createSupabaseServer()
@@ -25,10 +26,11 @@ export async function POST(request: Request) {
   const { supabase, user } = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await request.json()
+  const parsed = SavedRecipeSchema.safeParse(await request.json())
+  if (!parsed.success) return badRequest(parsed.error)
   const { data, error } = await supabase
     .from('saved_recipes')
-    .insert({ user_id: user.id, ...body, saved_at: new Date().toISOString() })
+    .insert({ user_id: user.id, ...parsed.data, saved_at: new Date().toISOString() })
     .select()
     .single()
 

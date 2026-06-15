@@ -1,6 +1,9 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import Link from 'next/link'
+import useSWR from 'swr'
 import { useUser } from '../../lib/UserContext'
+import { fetcher } from '../../lib/fetcher'
 import Navbar from '@/components/Navbar'
 import RecipeCard from '@/components/RecipeCard'
 
@@ -16,26 +19,21 @@ interface SavedRecipe {
 }
 
 export default function SavedPage() {
-  const { user, loading: authLoading } = useUser()
-  const [recipes, setRecipes] = useState<SavedRecipe[]>([])
-  const [loading, setLoading] = useState(true)
+  const { user } = useUser()
+  const { data: recipes, mutate } = useSWR<SavedRecipe[]>(
+    user ? '/api/recipes/saved' : null,
+    fetcher
+  )
   const [deleting, setDeleting] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (authLoading) return
-    if (!user) { setLoading(false); return }
-    fetch('/api/recipes/saved').then(async res => {
-      if (res.ok) setRecipes(await res.json())
-      setLoading(false)
-    })
-  }, [user, authLoading])
 
   const handleDelete = async (id: string) => {
     setDeleting(id)
     await fetch(`/api/recipes/saved/${id}`, { method: 'DELETE' })
-    setRecipes((prev) => prev.filter((r) => r.id !== id))
+    mutate(recipes?.filter(r => r.id !== id), false)
     setDeleting(null)
   }
+
+  const loading = user && recipes === undefined
 
   return (
     <main className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f4c5c 0%, #0a3340 100%)' }}>
@@ -46,15 +44,15 @@ export default function SavedPage() {
 
         {loading ? (
           <div className="text-center text-gray-400 py-20">Loading your recipes...</div>
-        ) : recipes.length === 0 ? (
+        ) : !recipes || recipes.length === 0 ? (
           <div className="text-center py-20 rounded-2xl" style={{ background: 'rgba(255,255,255,0.05)' }}>
             <div className="text-5xl mb-4">🍽️</div>
             <p className="text-white font-bold text-xl mb-2">No saved recipes yet</p>
             <p className="text-gray-400 mb-6">Generate some recipes and save your favorites!</p>
-            <a href="/recipes" className="px-6 py-3 rounded-full font-semibold"
+            <Link href="/recipes" className="px-6 py-3 rounded-full font-semibold"
               style={{ background: '#D4AF37', color: '#0a3340' }}>
               Generate Recipes
-            </a>
+            </Link>
           </div>
         ) : (
           <div className="space-y-6">

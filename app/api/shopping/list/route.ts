@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServer } from '../../../../lib/supabase-server'
+import { ShoppingListSchema, badRequest } from '../../../../lib/validation'
 
 async function getUser() {
   const supabase = await createSupabaseServer()
@@ -29,10 +30,11 @@ export async function POST(request: Request) {
   const { supabase, user } = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { items } = await request.json()
+  const parsed = ShoppingListSchema.safeParse(await request.json())
+  if (!parsed.success) return badRequest(parsed.error)
   const { error } = await supabase
     .from('shopping_lists')
-    .insert({ user_id: user.id, items })
+    .insert({ user_id: user.id, items: parsed.data.items })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })

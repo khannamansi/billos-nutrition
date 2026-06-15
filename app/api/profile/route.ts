@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServer } from '../../../lib/supabase-server'
+import { ProfileSchema, badRequest } from '../../../lib/validation'
 
 async function getUser() {
   const supabase = await createSupabaseServer()
@@ -27,11 +28,12 @@ export async function POST(request: Request) {
   const { supabase, user } = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await request.json()
+  const parsed = ProfileSchema.safeParse(await request.json())
+  if (!parsed.success) return badRequest(parsed.error)
   const { error } = await supabase
     .from('diet_profiles')
     .upsert(
-      { user_id: user.id, ...body, updated_at: new Date().toISOString() },
+      { user_id: user.id, ...parsed.data, updated_at: new Date().toISOString() },
       { onConflict: 'user_id' }
     )
 

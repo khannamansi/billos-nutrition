@@ -10,6 +10,12 @@ jest.mock('@/components/Navbar', () => ({
   default: () => <nav data-testid="navbar" />,
 }))
 
+jest.mock('swr', () => ({
+  __esModule: true,
+  default: jest.fn().mockReturnValue({ data: undefined, mutate: jest.fn() }),
+}))
+
+import useSWR from 'swr'
 import { useUser } from '../../lib/UserContext'
 import SavedPage from '../../app/saved/page'
 
@@ -28,45 +34,44 @@ const sampleRecipes = [
 beforeEach(() => {
   jest.clearAllMocks()
   ;(useUser as jest.Mock).mockReturnValue({ user: null, loading: false })
-  global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue([]) }) as any
+  ;(useSWR as jest.Mock).mockReturnValue({ data: undefined, mutate: jest.fn() })
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue({ success: true }) }) as any
 })
 
 describe('SavedPage', () => {
-  it('shows empty state for guest user', async () => {
+  it('shows empty state for guest user', () => {
     render(<SavedPage />)
-    await waitFor(() => expect(screen.getByText('No saved recipes yet')).toBeInTheDocument())
+    expect(screen.getByText('No saved recipes yet')).toBeInTheDocument()
   })
 
-  it('renders saved recipes for logged-in user', async () => {
+  it('renders saved recipes for logged-in user', () => {
     ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
-    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue(sampleRecipes) }) as any
+    ;(useSWR as jest.Mock).mockReturnValue({ data: sampleRecipes, mutate: jest.fn() })
     render(<SavedPage />)
-    await waitFor(() => expect(screen.getByText('Chicken Bowl')).toBeInTheDocument())
+    expect(screen.getByText('Chicken Bowl')).toBeInTheDocument()
     expect(screen.getByText('Cook and serve.')).toBeInTheDocument()
     expect(screen.getByText('Chicken, rice')).toBeInTheDocument()
   })
 
-  it('shows calorie and protein badges', async () => {
+  it('shows calorie and protein badges', () => {
     ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
-    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue(sampleRecipes) }) as any
+    ;(useSWR as jest.Mock).mockReturnValue({ data: sampleRecipes, mutate: jest.fn() })
     render(<SavedPage />)
-    await waitFor(() => expect(screen.getByText('🔥 500 kcal')).toBeInTheDocument())
+    expect(screen.getByText('🔥 500 kcal')).toBeInTheDocument()
     expect(screen.getByText('💪 40g protein')).toBeInTheDocument()
   })
 
   it('removes a recipe on delete', async () => {
+    const mockMutate = jest.fn()
     ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
-    global.fetch = jest.fn()
-      .mockResolvedValueOnce({ ok: true, json: jest.fn().mockResolvedValue(sampleRecipes) })
-      .mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue({ success: true }) }) as any
+    ;(useSWR as jest.Mock).mockReturnValue({ data: sampleRecipes, mutate: mockMutate })
     render(<SavedPage />)
-    await waitFor(() => expect(screen.getByText('Chicken Bowl')).toBeInTheDocument())
     fireEvent.click(screen.getByText('🗑️ Remove'))
-    await waitFor(() => expect(screen.queryByText('Chicken Bowl')).not.toBeInTheDocument())
+    await waitFor(() => expect(mockMutate).toHaveBeenCalledWith([], false))
   })
 
-  it('shows Generate Recipes link when empty', async () => {
+  it('shows Generate Recipes link when empty', () => {
     render(<SavedPage />)
-    await waitFor(() => expect(screen.getByText('Generate Recipes')).toBeInTheDocument())
+    expect(screen.getByText('Generate Recipes')).toBeInTheDocument()
   })
 })
