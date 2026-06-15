@@ -28,9 +28,10 @@ export async function POST(request: Request) {
 
   const parsed = SavedRecipeSchema.safeParse(await request.json())
   if (!parsed.success) return badRequest(parsed.error)
+  const { name, calories, protein, ingredients, instructions } = parsed.data
   const { data, error } = await supabase
     .from('saved_recipes')
-    .insert({ user_id: user.id, ...parsed.data, saved_at: new Date().toISOString() })
+    .insert({ user_id: user.id, name, calories, protein, ingredients, instructions, saved_at: new Date().toISOString() })
     .select()
     .single()
 
