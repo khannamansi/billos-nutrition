@@ -27,6 +27,16 @@ export default function RecipesPage() {
   const [guestPrompt, setGuestPrompt] = useState(false)
 
   useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem('billos:recipes')
+      if (cached) {
+        const { recipes: r, ingredients: i } = JSON.parse(cached)
+        if (r?.length) { setRecipes(r); setIngredients(i ?? '') }
+      }
+    } catch {}
+  }, [])
+
+  useEffect(() => {
     if (authLoading || !user) return
     fetch('/api/profile').then(async res => {
       if (res.ok) {
@@ -73,7 +83,10 @@ export default function RecipesPage() {
 
       const clean = accumulated.replace(/```json|```/g, '').trim()
       const parsed = JSON.parse(clean)
-      if (parsed.recipes) setRecipes(parsed.recipes)
+      if (parsed.recipes) {
+        setRecipes(parsed.recipes)
+        sessionStorage.setItem('billos:recipes', JSON.stringify({ recipes: parsed.recipes, ingredients }))
+      }
     } catch (error) {
       console.error(error)
     }
@@ -162,6 +175,13 @@ export default function RecipesPage() {
 
         {recipes.length > 0 && (
           <div className="space-y-6">
+            <div className="flex justify-end">
+              <button
+                onClick={() => { setRecipes([]); setIngredients(''); sessionStorage.removeItem('billos:recipes') }}
+                className="text-sm text-gray-400 hover:text-red-400 transition">
+                ✕ Clear recipes
+              </button>
+            </div>
             {recipes.map((recipe, i) => (
               <RecipeCard
                 key={i}
