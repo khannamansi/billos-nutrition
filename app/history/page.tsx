@@ -179,7 +179,7 @@ export default function HistoryPage() {
       <Navbar active="history" />
 
       {guestPrompt && (
-        <div className="mx-auto max-w-3xl px-8 mt-4">
+        <div className="mx-auto max-w-3xl px-4 md:px-8 mt-4">
           <div className="p-3 rounded-xl text-sm text-center"
             style={{ background: 'rgba(212,175,55,0.15)', border: '1px solid rgba(212,175,55,0.3)', color: '#D4AF37' }}>
             🐱 <Link href="/auth/login" className="underline font-semibold">Sign in</Link> to log your meals
@@ -187,7 +187,7 @@ export default function HistoryPage() {
         </div>
       )}
 
-      <div className="max-w-3xl mx-auto px-8 py-10">
+      <div className="max-w-3xl mx-auto px-4 md:px-8 py-8 md:py-10">
         <div className="flex justify-between items-center mb-2">
           <h1 className="text-3xl font-bold text-white">📊 Meal History</h1>
           <button
@@ -243,19 +243,28 @@ export default function HistoryPage() {
                 placeholder="🔍 Search food (e.g. chicken breast)"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl text-white placeholder-gray-400 border border-white/20 focus:outline-none focus:border-yellow-400"
+                onBlur={() => setTimeout(() => setShowResults(false), 150)}
+                onFocus={() => { if (results.length > 0) setShowResults(true) }}
+                className="w-full px-4 py-3 pr-10 rounded-xl text-white placeholder-gray-400 border border-white/20 focus:outline-none focus:border-yellow-400"
                 style={{ background: 'rgba(255,255,255,0.1)' }}
               />
               {searching && (
                 <span className="absolute right-3 top-3 text-gray-400 text-sm">Searching...</span>
               )}
+              {query && !searching && (
+                <button
+                  onMouseDown={(e) => { e.preventDefault(); setQuery(''); setResults([]); setShowResults(false) }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition text-lg leading-none">
+                  ✕
+                </button>
+              )}
               {showResults && results.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 rounded-xl overflow-hidden shadow-xl"
-                  style={{ background: '#0a3340', border: '1px solid rgba(212,175,55,0.3)' }}>
+                <div className="absolute z-10 w-full mt-1 rounded-xl overflow-y-auto shadow-xl"
+                  style={{ background: '#0a3340', border: '1px solid rgba(212,175,55,0.3)', maxHeight: '260px' }}>
                   {results.map((food) => (
                     <button
                       key={food.fdcId}
-                      onClick={() => selectFood(food)}
+                      onMouseDown={(e) => { e.preventDefault(); selectFood(food) }}
                       className="w-full text-left px-4 py-3 hover:bg-white/10 transition border-b border-white/5 last:border-0">
                       <p className="text-white text-sm font-medium truncate">{food.description}</p>
                       <p className="text-gray-400 text-xs mt-0.5">
@@ -268,11 +277,20 @@ export default function HistoryPage() {
             </div>
 
             <div className="space-y-3">
-              <input type="text" placeholder="Meal name" value={mealName}
-                onChange={(e) => setMealName(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl text-white placeholder-gray-400 border border-white/20 focus:outline-none focus:border-yellow-400"
-                style={{ background: 'rgba(255,255,255,0.1)' }} />
-              <div className="grid grid-cols-3 gap-3">
+              <div className="relative">
+                <input type="text" placeholder="Meal name" value={mealName}
+                  onChange={(e) => setMealName(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl text-white placeholder-gray-400 border border-white/20 focus:outline-none focus:border-yellow-400 pr-10"
+                  style={{ background: 'rgba(255,255,255,0.1)' }} />
+                {mealName && (
+                  <button
+                    onClick={() => { setMealName(''); setCalories(''); setProtein(''); setServing('100'); setQuery('') }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition text-lg leading-none">
+                    ✕
+                  </button>
+                )}
+              </div>
+              <div className={`grid gap-3 grid-cols-1 ${results.length > 0 || serving !== '100' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
                 <input type="number" placeholder="Calories" value={calories}
                   onChange={(e) => setCalories(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl text-white placeholder-gray-400 border border-white/20 focus:outline-none focus:border-yellow-400"
@@ -281,10 +299,12 @@ export default function HistoryPage() {
                   onChange={(e) => setProtein(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl text-white placeholder-gray-400 border border-white/20 focus:outline-none focus:border-yellow-400"
                   style={{ background: 'rgba(255,255,255,0.1)' }} />
-                <input type="number" placeholder="Serving (g)" value={serving}
-                  onChange={(e) => recalcServing(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl text-white placeholder-gray-400 border border-white/20 focus:outline-none focus:border-yellow-400"
-                  style={{ background: 'rgba(255,255,255,0.1)' }} />
+                {(results.length > 0 || serving !== '100') && (
+                  <input type="number" placeholder="Serving (g)" value={serving}
+                    onChange={(e) => recalcServing(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl text-white placeholder-gray-400 border border-white/20 focus:outline-none focus:border-yellow-400"
+                    style={{ background: 'rgba(255,255,255,0.1)' }} />
+                )}
               </div>
               <button onClick={addMeal} disabled={adding || !mealName.trim()}
                 className="w-full py-3 rounded-xl font-bold transition disabled:opacity-50"
@@ -324,14 +344,17 @@ export default function HistoryPage() {
 
               return (
                 <div key={dayKey} className="mb-10">
-                  <div className="flex justify-between items-center mb-5 pb-3"
+                  <div className="mb-5 pb-3"
                     style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                    <h2 className="text-white font-bold text-lg">
-                      {isToday ? 'Today' : formatDayHeader(dayKey)}
-                    </h2>
-                    <span className="text-sm" style={{ color: '#D4AF37' }}>
-                      {dayCalories} kcal · {dayProtein}g protein
-                    </span>
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-white font-bold text-lg">
+                        {isToday ? 'Today' : formatDayHeader(dayKey)}
+                      </h2>
+                      <span className="text-sm shrink-0 ml-2" style={{ color: '#D4AF37' }}>
+                        {dayCalories} kcal
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">{dayProtein}g protein</p>
                   </div>
 
                   <div className="space-y-5">

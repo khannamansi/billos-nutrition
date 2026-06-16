@@ -10,9 +10,13 @@ export async function GET(request: Request) {
   }
 
   try {
-    const res = await fetch(
-      `${USDA_BASE}/foods/search?query=${encodeURIComponent(query)}&pageSize=6&dataType=SR%20Legacy,Survey%20(FNDDS)&api_key=${USDA_API_KEY}`
-    )
+    const params = new URLSearchParams({
+      query,
+      pageSize: '10',
+      dataType: 'Foundation,SR Legacy',
+      api_key: USDA_API_KEY,
+    })
+    const res = await fetch(`${USDA_BASE}/foods/search?${params}`)
 
     if (!res.ok) {
       return NextResponse.json({ error: 'USDA API error' }, { status: res.status })
