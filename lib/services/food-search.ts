@@ -1,3 +1,5 @@
+import Fuse from 'fuse.js'
+
 export interface FoodResult {
   fdcId: string
   description: string
@@ -43,16 +45,17 @@ async function searchUSDA(query: string, apiKey: string): Promise<FoodResult[]> 
 }
 
 function matchCustomFoods(query: string, customFoods: CustomFood[]): FoodResult[] {
-  const q = query.toLowerCase()
-  return customFoods
-    .filter(f => f.description.toLowerCase().includes(q))
-    .map(f => ({
-      fdcId: `custom_${f.id}`,
-      description: f.description,
-      calories_per_100g: f.calories_per_100g,
-      protein_per_100g: f.protein_per_100g,
-      source: 'custom' as const,
-    }))
+  const fuse = new Fuse(customFoods, {
+    keys: ['description'],
+    threshold: 0.4,
+  })
+  return fuse.search(query).map(({ item }) => ({
+    fdcId: `custom_${item.id}`,
+    description: item.description,
+    calories_per_100g: item.calories_per_100g,
+    protein_per_100g: item.protein_per_100g,
+    source: 'custom' as const,
+  }))
 }
 
 export async function searchFoods(
