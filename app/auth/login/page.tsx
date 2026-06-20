@@ -8,21 +8,39 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState<'error' | 'success' | 'info'>('error')
 
   const handleEmailAuth = async () => {
     setLoading(true)
     setMessage('')
 
-    if (isSignUp) {
-      const { error } = await supabase.auth.signUp({ email, password })
-      if (error) setMessage(error.message)
-      else setMessage('Check your email to confirm your account!')
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) setMessage(error.message)
-      else window.location.href = '/dashboard'
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({ email, password })
+        if (error) {
+          if (error.message.toLowerCase().includes('already registered') || error.message.toLowerCase().includes('already exists')) {
+            setIsSignUp(false)
+            setMessageType('info')
+            setMessage('Account already exists. Signing you in instead — enter your password below.')
+          } else {
+            setMessageType('error')
+            setMessage(error.message)
+          }
+        } else {
+          setMessageType('success')
+          setMessage('Check your email to confirm your account!')
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) { setMessageType('error'); setMessage(error.message) }
+        else window.location.href = '/dashboard'
+      }
+    } catch {
+      setMessageType('error')
+      setMessage('Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleGoogleLogin = async () => {
@@ -87,7 +105,7 @@ export default function LoginPage() {
           </a>
 
           {message && (
-            <p className="text-sm text-center" style={{ color: message.includes('Check') ? '#4ade80' : '#f87171' }}>
+            <p className="text-sm text-center" style={{ color: messageType === 'success' ? '#4ade80' : messageType === 'info' ? '#D4AF37' : '#f87171' }}>
               {message}
             </p>
           )}

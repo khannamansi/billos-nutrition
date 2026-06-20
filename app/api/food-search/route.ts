@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
+import { searchFoods } from '../../../lib/services/food-search'
 
 const USDA_API_KEY = process.env.USDA_API_KEY ?? 'DEMO_KEY'
-const USDA_BASE = 'https://api.nal.usda.gov/fdc/v1'
 
 export async function GET(request: Request) {
   const query = new URL(request.url).searchParams.get('q')?.trim()
@@ -10,34 +10,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const params = new URLSearchParams({
-      query,
-      pageSize: '10',
-      dataType: 'Foundation,SR Legacy',
-      api_key: USDA_API_KEY,
-    })
-    const res = await fetch(`${USDA_BASE}/foods/search?${params}`)
-
-    if (!res.ok) {
-      return NextResponse.json({ error: 'USDA API error' }, { status: res.status })
-    }
-
-    const data = await res.json()
-
-    const foods = (data.foods ?? []).map((food: any) => {
-      const nutrients: Record<string, number> = {}
-      for (const n of food.foodNutrients ?? []) {
-        if (n.nutrientName === 'Energy') nutrients.calories = Math.round(n.value ?? 0)
-        if (n.nutrientName === 'Protein') nutrients.protein = Math.round(n.value ?? 0)
-      }
-      return {
-        fdcId: food.fdcId,
-        description: food.description,
-        calories_per_100g: nutrients.calories ?? 0,
-        protein_per_100g: nutrients.protein ?? 0,
-      }
-    })
-
+    const foods = await searchFoods(query, USDA_API_KEY)
     return NextResponse.json({ foods })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })

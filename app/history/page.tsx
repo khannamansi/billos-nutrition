@@ -21,7 +21,6 @@ interface FoodResult {
   protein_per_100g: number
 }
 
-const LIMIT = 20
 const MEAL_TYPES = ['breakfast', 'lunch', 'snacks', 'dinner'] as const
 type MealType = typeof MEAL_TYPES[number]
 
@@ -32,8 +31,8 @@ const MEAL_META: Record<MealType, { emoji: string; label: string }> = {
   dinner: { emoji: '🌙', label: 'Dinner' },
 }
 
-function toDateKey(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-CA')
+function todayKey(): string {
+  return new Date().toLocaleDateString('en-CA')
 }
 
 function formatDayHeader(dateKey: string): string {
@@ -41,12 +40,19 @@ function formatDayHeader(dateKey: string): string {
   return date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
 }
 
+function dayBounds(dateKey: string): { from: string; to: string } {
+  const from = new Date(dateKey + 'T00:00:00').toISOString()
+  const to = new Date(dateKey + 'T23:59:59.999').toISOString()
+  return { from, to }
+}
+
 export default function HistoryPage() {
   const { user, loading: authLoading } = useUser()
   const [meals, setMeals] = useState<MealEntry[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [selectedDate, setSelectedDate] = useState(todayKey())
+  const dateInputRef = useRef<HTMLInputElement>(null)
+
   const [mealName, setMealName] = useState('')
   const [calories, setCalories] = useState('')
   const [protein, setProtein] = useState('')
@@ -63,28 +69,33 @@ export default function HistoryPage() {
   const [showResults, setShowResults] = useState(false)
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const fetchMeals = async (dateKey: string) => {
+    setLoading(true)
+    const { from, to } = dayBounds(dateKey)
+    const res = await fetch(`/api/meals?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
+    if (res.ok) {
+      const { meals } = await res.json()
+      setMeals(meals ?? [])
+    }
+    setLoading(false)
+  }
+
   useEffect(() => {
     if (authLoading) return
     if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); setLoading(false); return }
-    setPage(1)
-    fetch(`/api/meals?page=1&limit=${LIMIT}`).then(async res => {
-      if (res.ok) {
-        const { meals, total } = await res.json()
-        setMeals(meals ?? [])
-        setTotal(total ?? 0)
-      }
-      setLoading(false)
-    })
-  }, [user, authLoading])
+    fetchMeals(selectedDate)
+  }, [user, authLoading, selectedDate])
 
-  const loadMore = async () => {
-    const nextPage = page + 1
-    const res = await fetch(`/api/meals?page=${nextPage}&limit=${LIMIT}`)
-    if (res.ok) {
-      const { meals: more } = await res.json()
-      setMeals((prev) => [...prev, ...more])
-      setPage(nextPage)
-    }
+  const goToPrevDay = () => {
+    const d = new Date(selectedDate + 'T12:00:00')
+    d.setDate(d.getDate() - 1)
+    setSelectedDate(d.toLocaleDateString('en-CA'))
+  }
+
+  const goToNextDay = () => {
+    const d = new Date(selectedDate + 'T12:00:00')
+    d.setDate(d.getDate() + 1)
+    setSelectedDate(d.toLocaleDateString('en-CA'))
   }
 
   useEffect(() => {
@@ -142,8 +153,7 @@ export default function HistoryPage() {
     })
     if (res.ok) {
       const data = await res.json()
-      setMeals([data, ...meals])
-      setTotal((t) => t + 1)
+      if (selectedDate === todayKey()) setMeals([data, ...meals])
       setMealName('')
       setCalories('')
       setProtein('')
@@ -158,21 +168,22 @@ export default function HistoryPage() {
   const handleDelete = async (id: string) => {
     await fetch(`/api/meals/${id}`, { method: 'DELETE' })
     setMeals((prev) => prev.filter((m) => m.id !== id))
-    setTotal((t) => t - 1)
   }
 
-  const todayKey = new Date().toLocaleDateString('en-CA')
-  const todaysMeals = meals.filter(m => toDateKey(m.logged_at) === todayKey)
-  const todaysCalories = todaysMeals.reduce((s, m) => s + m.calories, 0)
-  const todaysProtein = todaysMeals.reduce((s, m) => s + m.protein, 0)
+  const isToday = selectedDate === todayKey()
+  const isFuture = selectedDate > todayKey()
+  const dayCalories = meals.reduce((s, m) => s + m.calories, 0)
+  const dayProtein = meals.reduce((s, m) => s + m.protein, 0)
 
-  const byDay: Record<string, MealEntry[]> = {}
+  const byType: Record<string, MealEntry[]> = {}
   for (const meal of meals) {
-    const key = toDateKey(meal.logged_at)
-    if (!byDay[key]) byDay[key] = []
-    byDay[key].push(meal)
+    const type = meal.meal_type ?? 'other'
+    if (!byType[type]) byType[type] = []
+    byType[type].push(meal)
   }
-  const sortedDayKeys = Object.keys(byDay).sort((a, b) => b.localeCompare(a))
+  const slotsToRender: string[] = isToday
+    ? [...MEAL_TYPES, ...('other' in byType ? ['other'] : [])]
+    : [...MEAL_TYPES.filter(t => t in byType), ...('other' in byType ? ['other'] : [])]
 
   return (
     <main className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f4c5c 0%, #0a3340 100%)' }}>
@@ -188,7 +199,7 @@ export default function HistoryPage() {
       )}
 
       <div className="max-w-3xl mx-auto px-4 md:px-8 py-8 md:py-10">
-        <div className="flex justify-between items-center mb-2">
+        <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-white">📊 Meal History</h1>
           <button
             onClick={() => {
@@ -200,18 +211,53 @@ export default function HistoryPage() {
             + Log Meal
           </button>
         </div>
-        <p className="text-gray-400 mb-8">Track what you've eaten today</p>
+
+        {/* Day navigator */}
+        <div className="flex items-center justify-between mb-6 rounded-2xl px-4 py-3"
+          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <button onClick={goToPrevDay}
+            className="p-2 rounded-xl hover:bg-white/10 transition text-white font-bold text-lg leading-none">
+            ‹
+          </button>
+
+          <div className="text-center">
+            <input
+              ref={dateInputRef}
+              type="date"
+              value={selectedDate}
+              max={todayKey()}
+              onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+              className="opacity-0 absolute w-0 h-0"
+            />
+            <button onClick={() => dateInputRef.current?.showPicker()}
+              className="text-white font-semibold text-base hover:text-yellow-400 transition">
+              {isToday ? 'Today' : formatDayHeader(selectedDate)}
+            </button>
+            {!isToday && (
+              <button onClick={() => setSelectedDate(todayKey())}
+                className="block mx-auto text-xs mt-0.5 hover:text-yellow-400 transition"
+                style={{ color: '#D4AF37' }}>
+                Go to today
+              </button>
+            )}
+          </div>
+
+          <button onClick={goToNextDay} disabled={isToday || isFuture}
+            className="p-2 rounded-xl hover:bg-white/10 transition text-white font-bold text-lg leading-none disabled:opacity-30">
+            ›
+          </button>
+        </div>
 
         <div className="grid grid-cols-2 gap-4 mb-8">
           <div className="rounded-2xl p-5 text-center"
             style={{ background: 'rgba(212,175,55,0.15)', border: '1px solid rgba(212,175,55,0.3)' }}>
-            <div className="text-3xl font-bold text-white">{todaysCalories}</div>
-            <div className="text-yellow-400 text-sm mt-1">🔥 Calories Today</div>
+            <div className="text-3xl font-bold text-white">{dayCalories}</div>
+            <div className="text-yellow-400 text-sm mt-1">🔥 Calories</div>
           </div>
           <div className="rounded-2xl p-5 text-center"
             style={{ background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.3)' }}>
-            <div className="text-3xl font-bold text-white">{todaysProtein}g</div>
-            <div className="text-green-400 text-sm mt-1">💪 Protein Today</div>
+            <div className="text-3xl font-bold text-white">{dayProtein}g</div>
+            <div className="text-green-400 text-sm mt-1">💪 Protein</div>
           </div>
         </div>
 
@@ -316,94 +362,50 @@ export default function HistoryPage() {
         )}
 
         {loading ? (
-          <div className="text-center text-gray-400 py-20">Loading history...</div>
-        ) : meals.length === 0 ? (
-          <div className="text-center py-20 rounded-2xl" style={{ background: 'rgba(255,255,255,0.05)' }}>
-            <div className="text-5xl mb-4">🍽️</div>
-            <p className="text-white font-bold text-xl mb-2">No meals logged yet</p>
-            <p className="text-gray-400">Start tracking what you eat!</p>
-          </div>
+          <div className="text-center text-gray-400 py-20">Loading...</div>
         ) : (
-          <>
-            {sortedDayKeys.map((dayKey) => {
-              const dayMeals = byDay[dayKey]
-              const isToday = dayKey === todayKey
-              const dayCalories = dayMeals.reduce((s, m) => s + m.calories, 0)
-              const dayProtein = dayMeals.reduce((s, m) => s + m.protein, 0)
+          <div className="space-y-5">
+            {slotsToRender.length === 0 && !isToday ? (
+              <div className="text-center py-20 rounded-2xl" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                <div className="text-5xl mb-4">🍽️</div>
+                <p className="text-white font-bold text-xl mb-2">No meals logged</p>
+                <p className="text-gray-400">Nothing was tracked on this day</p>
+              </div>
+            ) : (
+              slotsToRender.map((slotType) => {
+                const slotMeals = byType[slotType] ?? []
+                const meta = slotType === 'other'
+                  ? { emoji: '🍽️', label: 'Other' }
+                  : MEAL_META[slotType as MealType]
+                const slotCalories = slotMeals.reduce((s: number, m: MealEntry) => s + m.calories, 0)
+                const slotProtein = slotMeals.reduce((s: number, m: MealEntry) => s + m.protein, 0)
 
-              const byType: Record<string, MealEntry[]> = {}
-              for (const meal of dayMeals) {
-                const type = meal.meal_type ?? 'other'
-                if (!byType[type]) byType[type] = []
-                byType[type].push(meal)
-              }
-
-              const slotsToRender: string[] = isToday
-                ? [...MEAL_TYPES, ...('other' in byType ? ['other'] : [])]
-                : [...MEAL_TYPES.filter(t => t in byType), ...('other' in byType ? ['other'] : [])]
-
-              return (
-                <div key={dayKey} className="mb-10">
-                  <div className="mb-5 pb-3"
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                    <div className="flex justify-between items-center">
-                      <h2 className="text-white font-bold text-lg">
-                        {isToday ? 'Today' : formatDayHeader(dayKey)}
-                      </h2>
-                      <span className="text-sm shrink-0 ml-2" style={{ color: '#D4AF37' }}>
-                        {dayCalories} kcal
+                return (
+                  <div key={slotType}>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-semibold" style={{ color: '#D4AF37' }}>
+                        {meta.emoji} {meta.label}
                       </span>
+                      {slotMeals.length > 0 && (
+                        <span className="text-gray-400 text-xs">
+                          {slotCalories} kcal · {slotProtein}g protein
+                        </span>
+                      )}
                     </div>
-                    <p className="text-xs text-gray-400 mt-0.5">{dayProtein}g protein</p>
+                    {slotMeals.length === 0 ? (
+                      <p className="text-gray-600 text-sm pl-1">Nothing logged yet</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {slotMeals.map((meal) => (
+                          <MealHistoryCard key={meal.id} meal={meal} onDelete={handleDelete} />
+                        ))}
+                      </div>
+                    )}
                   </div>
-
-                  <div className="space-y-5">
-                    {slotsToRender.map((slotType) => {
-                      const slotMeals = byType[slotType] ?? []
-                      const meta = slotType === 'other'
-                        ? { emoji: '🍽️', label: 'Other' }
-                        : MEAL_META[slotType as MealType]
-                      const slotCalories = slotMeals.reduce((s, m) => s + m.calories, 0)
-                      const slotProtein = slotMeals.reduce((s, m) => s + m.protein, 0)
-
-                      return (
-                        <div key={slotType}>
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-semibold" style={{ color: '#D4AF37' }}>
-                              {meta.emoji} {meta.label}
-                            </span>
-                            {slotMeals.length > 0 && (
-                              <span className="text-gray-400 text-xs">
-                                {slotCalories} kcal · {slotProtein}g protein
-                              </span>
-                            )}
-                          </div>
-                          {slotMeals.length === 0 ? (
-                            <p className="text-gray-600 text-sm pl-1">Nothing logged yet</p>
-                          ) : (
-                            <div className="space-y-2">
-                              {slotMeals.map((meal) => (
-                                <MealHistoryCard key={meal.id} meal={meal} onDelete={handleDelete} />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-
-            {meals.length < total && (
-              <button
-                onClick={loadMore}
-                className="mt-2 w-full py-3 rounded-xl font-semibold text-sm transition"
-                style={{ background: 'rgba(255,255,255,0.08)', color: '#9ca3af', border: '1px solid rgba(255,255,255,0.12)' }}>
-                Load more
-              </button>
+                )
+              })
             )}
-          </>
+          </div>
         )}
       </div>
     </main>

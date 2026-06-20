@@ -36,4 +36,12 @@ describe('auth callback', () => {
     expect(mockExchangeCode).not.toHaveBeenCalled()
     expect(response.url).toContain('/dashboard')
   })
+
+  it('still redirects to dashboard when code exchange fails (new Google user)', async () => {
+    mockExchangeCode.mockResolvedValue({ data: null, error: { message: 'invalid code' } })
+    const request = new Request('http://localhost/auth/callback?code=bad-code')
+    const response = await GET(request)
+    expect(mockExchangeCode).toHaveBeenCalledWith('bad-code')
+    expect(response.url).toContain('/dashboard')
+  })
 })

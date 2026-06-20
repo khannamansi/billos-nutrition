@@ -13,20 +13,29 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const url = new URL(request.url)
-  const page = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'))
-  const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') ?? '20')))
-  const from = (page - 1) * limit
-  const to = from + limit - 1
+  const fromDate = url.searchParams.get('from')
+  const toDate = url.searchParams.get('to')
 
-  const { data, error, count } = await supabase
+  let query = supabase
     .from('meal_history')
     .select('*', { count: 'exact' })
     .eq('user_id', user.id)
     .order('logged_at', { ascending: false })
-    .range(from, to)
+
+  if (fromDate) query = query.gte('logged_at', fromDate)
+  if (toDate) query = query.lte('logged_at', toDate)
+
+  if (!fromDate && !toDate) {
+    const page = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'))
+    const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') ?? '20')))
+    const offset = (page - 1) * limit
+    query = query.range(offset, offset + limit - 1)
+  }
+
+  const { data, error, count } = await query
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ meals: data ?? [], total: count ?? 0, page, limit })
+  return NextResponse.json({ meals: data ?? [], total: count ?? 0 })
 }
 
 export async function POST(request: Request) {

@@ -25,6 +25,8 @@ beforeEach(() => {
     select: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
     order: jest.fn().mockReturnThis(),
+    gte: jest.fn().mockReturnThis(),
+    lte: jest.fn().mockReturnThis(),
     range: jest.fn().mockResolvedValue({ data: [], error: null, count: 0 }),
     single: jest.fn().mockResolvedValue({ data: null, error: null }),
     insert: jest.fn().mockReturnThis(),
@@ -50,16 +52,23 @@ describe('Meals API — GET', () => {
     expect(res.status).toBe(200)
     expect(body.meals).toHaveLength(2)
     expect(body.total).toBe(2)
-    expect(body.page).toBe(1)
   })
 
   it('respects page and limit query params', async () => {
     mockBuilder.range.mockResolvedValue({ data: [], error: null, count: 50 })
     const res = await GET(new Request('http://localhost/api/meals?page=2&limit=10'))
-    const body = await res.json()
-    expect(body.page).toBe(2)
-    expect(body.limit).toBe(10)
     expect(mockBuilder.range).toHaveBeenCalledWith(10, 19)
+  })
+
+  it('filters meals by date range when from/to params provided', async () => {
+    mockBuilder.lte.mockResolvedValue({ data: mockMeals, error: null, count: 2 })
+    const from = '2026-06-20T00:00:00.000Z'
+    const to = '2026-06-20T23:59:59.999Z'
+    const res = await GET(new Request(`http://localhost/api/meals?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`))
+    const body = await res.json()
+    expect(mockBuilder.gte).toHaveBeenCalledWith('logged_at', from)
+    expect(mockBuilder.lte).toHaveBeenCalledWith('logged_at', to)
+    expect(body.meals).toHaveLength(2)
   })
 
   it('returns 500 on db error', async () => {
