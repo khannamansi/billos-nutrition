@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useUser } from '../../lib/UserContext'
 import { PANTRY_CATEGORIES } from '../../lib/pantryData'
+import { apiFetch } from '../../lib/api-client'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
 
@@ -14,19 +15,19 @@ export default function Pantry() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (authLoading) return
     if (user) {
-      fetch('/api/pantry').then(async res => {
-        if (res.ok) {
-          const data = await res.json()
+      apiFetch<{ item_name: string; is_stocked: boolean }[]>('/api/pantry')
+        .then((data) => {
           const map: StockedMap = {}
-          data.forEach((row: any) => { map[row.item_name] = row.is_stocked })
+          data.forEach((row) => { map[row.item_name] = row.is_stocked })
           setStocked(map)
-        }
-        setLoading(false)
-      })
+        })
+        .catch((err) => setError(err.message))
+        .finally(() => setLoading(false))
     } else {
       setLoading(false)
     }
@@ -40,13 +41,19 @@ export default function Pantry() {
   const handleSave = async () => {
     if (!user) return
     setSaving(true)
-    const res = await fetch('/api/pantry', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stocked }),
-    })
-    setSaving(false)
-    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2000) }
+    setError(null)
+    try {
+      await apiFetch('/api/pantry', {
+        method: 'POST',
+        body: JSON.stringify({ stocked }),
+      })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const stockedCount = useMemo(
@@ -94,6 +101,12 @@ export default function Pantry() {
             <span className="text-xs text-gray-400 italic">Guest — data not saved</span>
           )}
         </div>
+        {error && (
+          <div className="mt-3 mb-2 px-4 py-3 rounded-xl text-sm"
+            style={{ background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.3)', color: '#f87171' }}>
+            {error}
+          </div>
+        )}
         <div className="relative mt-4 mb-6">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
           <input type="text" placeholder="Search ingredients..." value={search}

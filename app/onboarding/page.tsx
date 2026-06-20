@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useUser } from '../../lib/UserContext'
+import { apiFetch } from '../../lib/api-client'
 
 export default function Onboarding() {
   const { user, loading: authLoading } = useUser()
@@ -13,34 +14,32 @@ export default function Onboarding() {
   useEffect(() => {
     if (authLoading) return
     if (!user) { window.location.href = '/auth/login'; return }
-    fetch('/api/profile').then(async res => {
-      if (res.ok) {
-        const data = await res.json()
+    apiFetch<{ daily_calories: number; daily_protein: number; restrictions: string } | null>('/api/profile')
+      .then((data) => {
         if (data) {
           setCalories(data.daily_calories ?? 1400)
           setProtein(data.daily_protein ?? 120)
           setRestrictions(data.restrictions ?? '')
         }
-      }
-    })
+      })
+      .catch(() => {})
   }, [user, authLoading])
 
   const handleSave = async () => {
     setLoading(true)
     setMessage('')
-    const res = await fetch('/api/profile', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ daily_calories: calories, daily_protein: protein, restrictions }),
-    })
-    if (res.ok) {
+    try {
+      await apiFetch('/api/profile', {
+        method: 'POST',
+        body: JSON.stringify({ daily_calories: calories, daily_protein: protein, restrictions }),
+      })
       setMessage('Goals saved!')
       setTimeout(() => { window.location.href = '/dashboard' }, 1000)
-    } else {
-      const data = await res.json()
-      setMessage('Error saving — ' + (data.error ?? 'Unknown error'))
+    } catch (err: any) {
+      setMessage('Error saving — ' + err.message)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (

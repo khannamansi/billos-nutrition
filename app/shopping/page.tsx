@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { useUser } from '../../lib/UserContext'
+import { apiFetch } from '../../lib/api-client'
 import Navbar from '../../components/Navbar'
 import ShoppingList from '../../components/ShoppingList'
 import { PANTRY_CATEGORIES } from '../../lib/pantryData'
@@ -27,6 +28,7 @@ export default function ShoppingPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [guestPrompt, setGuestPrompt] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const [stocked, setStocked] = useState<StockedMap>({})
   const [search, setSearch] = useState('')
@@ -38,29 +40,27 @@ export default function ShoppingPage() {
     if (!user) { setLoading(false); return }
 
     setLoading(true)
-    Promise.all([
-      fetch('/api/profile'),
-      fetch('/api/shopping/list'),
-      fetch('/api/pantry'),
-    ]).then(async ([profileRes, listRes, pantryRes]) => {
-      if (profileRes.ok) {
-        const profile = await profileRes.json()
-        if (profile) {
-          setCalories(profile.daily_calories ?? 0)
-          setProtein(profile.daily_protein ?? 0)
-          setRestrictions(profile.restrictions ?? '')
-        }
+    Promise.allSettled([
+      apiFetch<{ daily_calories: number; daily_protein: number; restrictions: string } | null>('/api/profile'),
+      apiFetch<{ items: ShoppingItem[] } | null>('/api/shopping/list'),
+      apiFetch<{ item_name: string; is_stocked: boolean }[]>('/api/pantry'),
+    ]).then(([profileResult, listResult, pantryResult]) => {
+      if (profileResult.status === 'fulfilled' && profileResult.value) {
+        const profile = profileResult.value
+        setCalories(profile.daily_calories ?? 0)
+        setProtein(profile.daily_protein ?? 0)
+        setRestrictions(profile.restrictions ?? '')
       }
-      if (listRes.ok) {
-        const list = await listRes.json()
-        if (list?.items) setItems(list.items)
+      if (listResult.status === 'fulfilled' && listResult.value?.items) {
+        setItems(listResult.value.items)
       }
-      if (pantryRes.ok) {
-        const pantryData = await pantryRes.json()
+      if (pantryResult.status === 'fulfilled') {
         const map: StockedMap = {}
-        pantryData.forEach((row: any) => { map[row.item_name] = row.is_stocked })
+        pantryResult.value.forEach((row) => { map[row.item_name] = row.is_stocked })
         setStocked(map)
       }
+      const failed = [profileResult, listResult, pantryResult].find(r => r.status === 'rejected')
+      if (failed && failed.status === 'rejected') setError(failed.reason?.message ?? 'Failed to load data')
       setLoading(false)
     })
   }, [user, authLoading])
@@ -101,13 +101,19 @@ export default function ShoppingPage() {
   const handleSaveList = async () => {
     if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); return }
     setSaving(true)
-    const res = await fetch('/api/shopping/list', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items }),
-    })
-    if (res.ok) { setMessage('Shopping list saved!'); setTimeout(() => setMessage(''), 2000) }
-    setSaving(false)
+    setError(null)
+    try {
+      await apiFetch('/api/shopping/list', {
+        method: 'POST',
+        body: JSON.stringify({ items }),
+      })
+      setMessage('Shopping list saved!')
+      setTimeout(() => setMessage(''), 2000)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const togglePantry = (item: string) => {
@@ -118,13 +124,19 @@ export default function ShoppingPage() {
   const handleSavePantry = async () => {
     if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); return }
     setPantrySaving(true)
-    const res = await fetch('/api/pantry', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stocked }),
-    })
-    if (res.ok) { setPantrySaved(true); setTimeout(() => setPantrySaved(false), 2000) }
-    setPantrySaving(false)
+    setError(null)
+    try {
+      await apiFetch('/api/pantry', {
+        method: 'POST',
+        body: JSON.stringify({ stocked }),
+      })
+      setPantrySaved(true)
+      setTimeout(() => setPantrySaved(false), 2000)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setPantrySaving(false)
+    }
   }
 
   const stockedCount = useMemo(
@@ -165,6 +177,12 @@ export default function ShoppingPage() {
           <div className="mb-4 px-4 py-3 rounded-xl text-sm text-center"
             style={{ background: 'rgba(212,175,55,0.15)', border: '1px solid rgba(212,175,55,0.3)', color: '#D4AF37' }}>
             🐱 <a href="/auth/login" className="underline font-semibold">Sign in</a> to save your data
+          </div>
+        )}
+        {error && (
+          <div className="mb-4 px-4 py-3 rounded-xl text-sm text-center"
+            style={{ background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.3)', color: '#f87171' }}>
+            {error}
           </div>
         )}
 
