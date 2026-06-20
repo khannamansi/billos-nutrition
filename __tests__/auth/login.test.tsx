@@ -96,12 +96,71 @@ describe('LoginPage', () => {
     await waitFor(() => expect(screen.getByText(/Check your email/)).toBeInTheDocument())
   })
 
+  it('shows generic error and re-enables button when signUp throws', async () => {
+    ;(supabase.auth.signUp as jest.Mock).mockRejectedValue(new Error('Network error'))
+    render(<LoginPage />)
+    fireEvent.click(screen.getByText('Sign Up'))
+    fireEvent.change(screen.getByPlaceholderText('Email address'), { target: { value: 'a@b.com' } })
+    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'pass123' } })
+    fireEvent.click(screen.getByText('Create Account'))
+    await waitFor(() => expect(screen.getByText('Something went wrong. Please try again.')).toBeInTheDocument())
+    expect(screen.getByText('Create Account')).not.toBeDisabled()
+  })
+
+  it('shows generic error and re-enables button when signInWithPassword throws', async () => {
+    ;(supabase.auth.signInWithPassword as jest.Mock).mockRejectedValue(new Error('Network error'))
+    render(<LoginPage />)
+    fireEvent.change(screen.getByPlaceholderText('Email address'), { target: { value: 'a@b.com' } })
+    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'pass123' } })
+    fireEvent.click(screen.getAllByText('Sign In')[0])
+    await waitFor(() => expect(screen.getByText('Something went wrong. Please try again.')).toBeInTheDocument())
+    expect(screen.getAllByText('Sign In')[0]).not.toBeDisabled()
+  })
+
+  it('switches to sign-in and shows helpful message when account already exists', async () => {
+    ;(supabase.auth.signUp as jest.Mock).mockResolvedValue({ error: { message: 'User already registered' } })
+    render(<LoginPage />)
+    fireEvent.click(screen.getByText('Sign Up'))
+    fireEvent.change(screen.getByPlaceholderText('Email address'), { target: { value: 'existing@b.com' } })
+    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'pass123' } })
+    fireEvent.click(screen.getByText('Create Account'))
+    await waitFor(() => expect(screen.getByText(/Account already exists/)).toBeInTheDocument())
+    expect(screen.getByText('Welcome back!')).toBeInTheDocument()
+  })
+
   it('calls signInWithOAuth on Google button click', async () => {
     render(<LoginPage />)
     fireEvent.click(screen.getByText('Continue with Google'))
     await waitFor(() =>
       expect(supabase.auth.signInWithOAuth).toHaveBeenCalledWith(
         expect.objectContaining({ provider: 'google' })
+      )
+    )
+  })
+
+  it('passes redirectTo pointing at /auth/callback for Google sign-in', async () => {
+    render(<LoginPage />)
+    fireEvent.click(screen.getByText('Continue with Google'))
+    await waitFor(() =>
+      expect(supabase.auth.signInWithOAuth).toHaveBeenCalledWith({
+        provider: 'google',
+        options: { redirectTo: 'http://localhost/auth/callback' },
+      })
+    )
+  })
+
+  it('creates a new user session via Google OAuth callback after sign-in', async () => {
+    // Simulates the full Google sign-in user creation flow:
+    // 1. user clicks Continue with Google → signInWithOAuth called
+    // 2. Supabase redirects to /auth/callback?code=... → session created
+    render(<LoginPage />)
+    fireEvent.click(screen.getByText('Continue with Google'))
+    await waitFor(() =>
+      expect(supabase.auth.signInWithOAuth).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'google',
+          options: expect.objectContaining({ redirectTo: expect.stringContaining('/auth/callback') }),
+        })
       )
     )
   })

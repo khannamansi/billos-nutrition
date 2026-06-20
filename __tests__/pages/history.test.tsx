@@ -31,10 +31,12 @@ describe('HistoryPage', () => {
     await waitFor(() => expect(screen.getByText(/Sign in/)).toBeInTheDocument())
   })
 
-  it('shows empty state when user has no meals', async () => {
+  it('shows meal type slots for today even when no meals logged', async () => {
     ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
     render(<HistoryPage />)
-    await waitFor(() => expect(screen.getByText('No meals logged yet')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/Breakfast/)).toBeInTheDocument())
+    expect(screen.getByText(/Lunch/)).toBeInTheDocument()
+    expect(screen.getByText(/Dinner/)).toBeInTheDocument()
   })
 
   it('renders meals list for logged-in user', async () => {
@@ -60,7 +62,7 @@ describe('HistoryPage', () => {
       .mockResolvedValueOnce({ ok: true, json: jest.fn().mockResolvedValue({ meals: [], total: 0 }) })
       .mockResolvedValueOnce({ ok: true, json: jest.fn().mockResolvedValue(newMeal) }) as any
     render(<HistoryPage />)
-    await waitFor(() => expect(screen.getByText('No meals logged yet')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/Breakfast/)).toBeInTheDocument())
     fireEvent.click(screen.getByText('+ Log Meal'))
     fireEvent.change(screen.getByPlaceholderText('Meal name'), { target: { value: 'Eggs' } })
     fireEvent.change(screen.getByPlaceholderText('Calories'), { target: { value: '200' } })
@@ -87,10 +89,9 @@ describe('HistoryPage', () => {
     await waitFor(() => expect(screen.getAllByText(/Sign in/).length).toBeGreaterThan(0))
   })
 
-  it('shows Load more when there are more meals', async () => {
+  it('shows day navigator with Today label', async () => {
     ;(useUser as jest.Mock).mockReturnValue({ user: { id: 'u1' }, loading: false })
-    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue({ meals: sampleMeals, total: 50 }) }) as any
     render(<HistoryPage />)
-    await waitFor(() => expect(screen.getByText('Load more')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Today')).toBeInTheDocument())
   })
 })
