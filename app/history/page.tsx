@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useUser } from '../../lib/UserContext'
+import { apiFetch } from '../../lib/api-client'
 import Navbar from '@/components/Navbar'
 import MealHistoryCard from '@/components/MealHistoryCard'
 import Link from 'next/link'
@@ -62,6 +63,7 @@ export default function HistoryPage() {
   const [added, setAdded] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [guestPrompt, setGuestPrompt] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<FoodResult[]>([])
@@ -71,13 +73,18 @@ export default function HistoryPage() {
 
   const fetchMeals = async (dateKey: string) => {
     setLoading(true)
+    setError(null)
     const { from, to } = dayBounds(dateKey)
-    const res = await fetch(`/api/meals?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
-    if (res.ok) {
-      const { meals } = await res.json()
+    try {
+      const { meals } = await apiFetch<{ meals: MealEntry[] }>(
+        `/api/meals?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+      )
       setMeals(meals ?? [])
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   useEffect(() => {
@@ -104,8 +111,7 @@ export default function HistoryPage() {
     searchRef.current = setTimeout(async () => {
       setSearching(true)
       try {
-        const res = await fetch(`/api/food-search?q=${encodeURIComponent(query)}`)
-        const data = await res.json()
+        const data = await apiFetch<{ foods: FoodResult[] }>(`/api/food-search?q=${encodeURIComponent(query)}`)
         setResults(data.foods ?? [])
         setShowResults(true)
       } catch {
@@ -141,18 +147,17 @@ export default function HistoryPage() {
     if (!mealName.trim()) return
     if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); return }
     setAdding(true)
-    const res = await fetch('/api/meals', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        meal_name: mealName,
-        calories: parseInt(calories) || 0,
-        protein: parseInt(protein) || 0,
-        meal_type: mealType,
-      }),
-    })
-    if (res.ok) {
-      const data = await res.json()
+    setError(null)
+    try {
+      const data = await apiFetch<MealEntry>('/api/meals', {
+        method: 'POST',
+        body: JSON.stringify({
+          meal_name: mealName,
+          calories: parseInt(calories) || 0,
+          protein: parseInt(protein) || 0,
+          meal_type: mealType,
+        }),
+      })
       if (selectedDate === todayKey()) setMeals([data, ...meals])
       setMealName('')
       setCalories('')
@@ -161,13 +166,20 @@ export default function HistoryPage() {
       setQuery('')
       setAdded(true)
       setTimeout(() => setAdded(false), 2000)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setAdding(false)
     }
-    setAdding(false)
   }
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/meals/${id}`, { method: 'DELETE' })
-    setMeals((prev) => prev.filter((m) => m.id !== id))
+    try {
+      await apiFetch(`/api/meals/${id}`, { method: 'DELETE' })
+      setMeals((prev) => prev.filter((m) => m.id !== id))
+    } catch (err: any) {
+      setError(err.message)
+    }
   }
 
   const isToday = selectedDate === todayKey()
@@ -194,6 +206,14 @@ export default function HistoryPage() {
           <div className="p-3 rounded-xl text-sm text-center"
             style={{ background: 'rgba(212,175,55,0.15)', border: '1px solid rgba(212,175,55,0.3)', color: '#D4AF37' }}>
             🐱 <Link href="/auth/login" className="underline font-semibold">Sign in</Link> to log your meals
+          </div>
+        </div>
+      )}
+      {error && (
+        <div className="mx-auto max-w-3xl px-4 md:px-8 mt-4">
+          <div className="p-3 rounded-xl text-sm text-center"
+            style={{ background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.3)', color: '#f87171' }}>
+            {error}
           </div>
         </div>
       )}

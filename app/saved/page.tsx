@@ -4,6 +4,7 @@ import Link from 'next/link'
 import useSWR from 'swr'
 import { useUser } from '../../lib/UserContext'
 import { fetcher } from '../../lib/fetcher'
+import { apiFetch } from '../../lib/api-client'
 import Navbar from '@/components/Navbar'
 import RecipeCard from '@/components/RecipeCard'
 
@@ -25,12 +26,19 @@ export default function SavedPage() {
     fetcher
   )
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const handleDelete = async (id: string) => {
     setDeleting(id)
-    await fetch(`/api/recipes/saved/${id}`, { method: 'DELETE' })
-    mutate(recipes?.filter(r => r.id !== id), false)
-    setDeleting(null)
+    setError(null)
+    try {
+      await apiFetch(`/api/recipes/saved/${id}`, { method: 'DELETE' })
+      mutate(recipes?.filter(r => r.id !== id), false)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setDeleting(null)
+    }
   }
 
   const loading = user && recipes === undefined
@@ -42,6 +50,12 @@ export default function SavedPage() {
         <h1 className="text-3xl font-bold text-white mb-2">❤️ Saved Recipes</h1>
         <p className="text-gray-400 mb-8">Your favorite recipes from Billo</p>
 
+        {error && (
+          <div className="mb-6 px-4 py-3 rounded-xl text-sm"
+            style={{ background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.3)', color: '#f87171' }}>
+            {error}
+          </div>
+        )}
         {loading ? (
           <div className="text-center text-gray-400 py-20">Loading your recipes...</div>
         ) : !recipes || recipes.length === 0 ? (

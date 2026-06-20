@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useUser } from '../../lib/UserContext'
+import { apiFetch } from '../../lib/api-client'
 import Navbar from '@/components/Navbar'
 import RecipeCard from '@/components/RecipeCard'
 
@@ -25,6 +26,7 @@ export default function RecipesPage() {
   const [saving, setSaving] = useState<string | null>(null)
   const [savedNames, setSavedNames] = useState<Set<string>>(new Set())
   const [guestPrompt, setGuestPrompt] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     try {
@@ -38,16 +40,15 @@ export default function RecipesPage() {
 
   useEffect(() => {
     if (authLoading || !user) return
-    fetch('/api/profile').then(async res => {
-      if (res.ok) {
-        const data = await res.json()
+    apiFetch<{ daily_calories: number; daily_protein: number; restrictions: string } | null>('/api/profile')
+      .then((data) => {
         if (data) {
           setCalories(data.daily_calories ?? 0)
           setProtein(data.daily_protein ?? 0)
           setRestrictions(data.restrictions ?? '')
         }
-      }
-    })
+      })
+      .catch(() => {})
   }, [user, authLoading])
 
   const generateRecipes = async () => {
@@ -98,13 +99,18 @@ export default function RecipesPage() {
   const handleSave = async (recipe: Recipe) => {
     if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); return }
     setSaving(recipe.name)
-    const res = await fetch('/api/recipes/saved', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(recipe),
-    })
-    if (res.ok) setSavedNames((prev) => new Set(prev).add(recipe.name))
-    setSaving(null)
+    setError(null)
+    try {
+      await apiFetch('/api/recipes/saved', {
+        method: 'POST',
+        body: JSON.stringify(recipe),
+      })
+      setSavedNames((prev) => new Set(prev).add(recipe.name))
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setSaving(null)
+    }
   }
 
   return (
@@ -116,6 +122,14 @@ export default function RecipesPage() {
           <div className="p-3 rounded-xl text-sm text-center"
             style={{ background: 'rgba(212,175,55,0.15)', border: '1px solid rgba(212,175,55,0.3)', color: '#D4AF37' }}>
             🐱 <a href="/auth/login" className="underline font-semibold">Sign in</a> to generate and save recipes
+          </div>
+        </div>
+      )}
+      {error && (
+        <div className="mx-auto max-w-4xl px-8 mt-4">
+          <div className="p-3 rounded-xl text-sm text-center"
+            style={{ background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.3)', color: '#f87171' }}>
+            {error}
           </div>
         </div>
       )}

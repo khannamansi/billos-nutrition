@@ -1,2 +1,3 @@
-export const fetcher = (url: string) =>
-  fetch(url).then(r => r.ok ? r.json() : null)
+import { apiFetch } from './api-client'
+
+export const fetcher = <T = unknown>(url: string): Promise<T> => apiFetch<T>(url)
