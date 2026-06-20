@@ -92,7 +92,7 @@ describe('Shopping List API — POST', () => {
       body: JSON.stringify({ items }),
     })
     await POST(req)
-    expect(mockBuilder.insert).toHaveBeenCalledWith({ user_id: mockUser.id, items })
+    expect(mockBuilder.insert).toHaveBeenCalledWith({ user_id: mockUser.id, items: JSON.stringify(items) })
   })
 
   it('returns 500 on db error', async () => {

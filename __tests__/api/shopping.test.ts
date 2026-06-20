@@ -8,8 +8,8 @@ jest.mock('../../lib/ratelimit', () => ({
   ratelimit: { limit: jest.fn() },
 }))
 
-jest.mock('../../lib/langchain', () => ({
-  createModel: jest.fn().mockReturnValue({
+jest.mock('../../lib/ai', () => ({
+  getModel: jest.fn().mockReturnValue({
     stream: jest.fn().mockImplementation(() =>
       Promise.resolve(
         (async function* () {

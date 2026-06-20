@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
-import { createModel } from '../../../lib/langchain'
+import { getModel } from '../../../lib/ai'
 import { RecipeGenerationSchema, badRequest } from '../../../lib/validation'
 import { createSupabaseServer } from '../../../lib/supabase-server'
 import { ratelimit } from '../../../lib/ratelimit'
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) return badRequest(parsed.error)
     const { ingredients, calories, protein, restrictions } = parsed.data
 
-    const model = createModel(0.7)
+    const model = getModel('text')
 
     const prompt = ChatPromptTemplate.fromTemplate(`
       You are a friendly nutritionist chef named Billo.
