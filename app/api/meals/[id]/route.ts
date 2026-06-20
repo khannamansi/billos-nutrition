@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServer } from '../../../../lib/supabase-server'
+import { deleteMeal } from '../../../../lib/services/meals'
 
 export async function DELETE(
   _request: Request,
@@ -10,12 +11,11 @@ export async function DELETE(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
-  const { error } = await supabase
-    .from('meal_history')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', user.id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true })
+  try {
+    await deleteMeal(supabase, user.id, id)
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
 }

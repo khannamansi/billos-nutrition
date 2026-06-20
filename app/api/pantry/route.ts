@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createSupabaseServer } from '../../../lib/supabase-server'
 import { PANTRY_CATEGORIES } from '../../../lib/pantryData'
 import { PantrySchema, badRequest } from '../../../lib/validation'
+import { getPantryItems, upsertPantryItems } from '../../../lib/services/pantry'
 
 async function getUser() {
   const supabase = await createSupabaseServer()
@@ -9,17 +10,20 @@ async function getUser() {
   return { supabase, user }
 }
 
+function getCategoryForItem(itemName: string): string {
+  return PANTRY_CATEGORIES.find((c) => c.items.includes(itemName))?.name ?? 'Other'
+}
+
 export async function GET() {
   const { supabase, user } = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data, error } = await supabase
-    .from('pantry_items')
-    .select('item_name, is_stocked')
-    .eq('user_id', user.id)
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data ?? [])
+  try {
+    const items = await getPantryItems(supabase, user.id)
+    return NextResponse.json(items)
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
 }
 
 export async function POST(request: Request) {
@@ -28,19 +32,11 @@ export async function POST(request: Request) {
 
   const parsed = PantrySchema.safeParse(await request.json())
   if (!parsed.success) return badRequest(parsed.error)
-  const { stocked } = parsed.data
-  const upserts = Object.entries(stocked as Record<string, boolean>).map(([item_name, is_stocked]) => ({
-    user_id: user!.id,
-    item_name,
-    category: PANTRY_CATEGORIES.find((c) => c.items.includes(item_name))?.name ?? 'Other',
-    is_stocked,
-    updated_at: new Date().toISOString(),
-  }))
 
-  const { error } = await supabase
-    .from('pantry_items')
-    .upsert(upserts, { onConflict: 'user_id,item_name' })
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true })
+  try {
+    await upsertPantryItems(supabase, user.id, parsed.data.stocked as Record<string, boolean>, getCategoryForItem)
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
 }
