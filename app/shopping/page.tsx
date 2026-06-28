@@ -34,6 +34,9 @@ export default function ShoppingPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [stocked, setStocked] = useState<StockedMap>({})
+  const [customItems, setCustomItems] = useState<string[]>([])
+  const [newItemName, setNewItemName] = useState('')
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [pantrySaving, setPantrySaving] = useState(false)
   const [pantrySaved, setPantrySaved] = useState(false)
@@ -59,8 +62,14 @@ export default function ShoppingPage() {
       }
       if (pantryResult.status === 'fulfilled') {
         const map: StockedMap = {}
-        pantryResult.value.forEach((row) => { map[row.item_name] = row.is_stocked })
+        const knownItems = new Set(PANTRY_CATEGORIES.flatMap((c) => c.items))
+        const customs: string[] = []
+        pantryResult.value.forEach((row) => {
+          map[row.item_name] = row.is_stocked
+          if (!knownItems.has(row.item_name)) customs.push(row.item_name)
+        })
         setStocked(map)
+        setCustomItems(customs)
       }
       const failed = [profileResult, listResult, pantryResult].find(r => r.status === 'rejected')
       if (failed && failed.status === 'rejected') setError(failed.reason?.message ?? 'Failed to load data')
@@ -120,6 +129,25 @@ export default function ShoppingPage() {
     setPantrySaved(false)
   }
 
+  const toggleCat = (name: string) => {
+    setExpandedCats((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
+
+  const handleAddCustomItem = () => {
+    const name = newItemName.trim()
+    if (!name) return
+    if (customItems.some((i) => i.toLowerCase() === name.toLowerCase())) return
+    setCustomItems((prev) => [...prev, name])
+    setStocked((prev) => ({ ...prev, [name]: true }))
+    setNewItemName('')
+    setPantrySaved(false)
+  }
+
   const handleSavePantry = async () => {
     if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); return }
     setPantrySaving(true)
@@ -151,6 +179,13 @@ export default function ShoppingPage() {
         })).filter((cat) => cat.items.length > 0)
       : PANTRY_CATEGORIES,
     [search]
+  )
+
+  const filteredCustomItems = useMemo(
+    () => search.trim()
+      ? customItems.filter((i) => i.toLowerCase().includes(search.toLowerCase()))
+      : customItems,
+    [customItems, search]
   )
 
   return (
@@ -253,7 +288,7 @@ export default function ShoppingPage() {
               </div>
             )}
 
-            <div className="relative mb-6">
+            <div className="relative mb-4">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
               <input type="text" placeholder="Search ingredients..." value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -261,37 +296,97 @@ export default function ShoppingPage() {
                 style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }} />
             </div>
 
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
               {filtered.map((cat) => {
                 const catStocked = cat.items.filter((i) => stocked[i]).length
+                const isOpen = !!search.trim() || expandedCats.has(cat.name)
                 return (
                   <div key={cat.name} className="rounded-2xl overflow-hidden"
                     style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <div className="flex items-center justify-between px-4 py-3"
-                      style={{ background: `${cat.color}18`, borderBottom: `1px solid ${cat.color}30` }}>
+                    <button onClick={() => toggleCat(cat.name)}
+                      className="w-full flex items-center justify-between px-4 py-3 text-left"
+                      style={{ background: `${cat.color}18`, borderBottom: isOpen ? `1px solid ${cat.color}30` : 'none' }}>
                       <span className="font-semibold text-white">{cat.emoji} {cat.name}</span>
-                      <span className="text-xs font-medium" style={{ color: cat.color }}>{catStocked}/{cat.items.length}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-medium" style={{ color: cat.color }}>{catStocked}/{cat.items.length}</span>
+                        <span className="text-gray-400 text-xs">{isOpen ? '▲' : '▼'}</span>
+                      </div>
+                    </button>
+                    {isOpen && (
+                      <div className="grid grid-cols-2 gap-2 p-3">
+                        {cat.items.map((item) => {
+                          const checked = !!stocked[item]
+                          return (
+                            <button key={item} onClick={() => togglePantry(item)}
+                              className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-left transition"
+                              style={{
+                                background: checked ? cat.color : 'rgba(255,255,255,0.05)',
+                                color: checked ? '#0a3340' : '#d1d5db',
+                                fontWeight: checked ? 600 : 400,
+                                border: `1px solid ${checked ? cat.color : 'rgba(255,255,255,0.08)'}`,
+                              }}>
+                              <span>{checked ? '✓' : '○'}</span>{item}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+
+              {filteredCustomItems.length > 0 && (
+                <div className="rounded-2xl overflow-hidden"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.2)' }}>
+                  <button onClick={() => toggleCat('__custom__')}
+                    className="w-full flex items-center justify-between px-4 py-3 text-left"
+                    style={{ background: 'rgba(212,175,55,0.1)', borderBottom: (!!search.trim() || expandedCats.has('__custom__')) ? '1px solid rgba(212,175,55,0.3)' : 'none' }}>
+                    <span className="font-semibold text-white">⭐ My Items</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-medium" style={{ color: '#D4AF37' }}>
+                        {filteredCustomItems.filter((i) => stocked[i]).length}/{filteredCustomItems.length}
+                      </span>
+                      <span className="text-gray-400 text-xs">{(!!search.trim() || expandedCats.has('__custom__')) ? '▲' : '▼'}</span>
                     </div>
+                  </button>
+                  {(!!search.trim() || expandedCats.has('__custom__')) && (
                     <div className="grid grid-cols-2 gap-2 p-3">
-                      {cat.items.map((item) => {
+                      {filteredCustomItems.map((item) => {
                         const checked = !!stocked[item]
                         return (
                           <button key={item} onClick={() => togglePantry(item)}
                             className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-left transition"
                             style={{
-                              background: checked ? cat.color : 'rgba(255,255,255,0.05)',
+                              background: checked ? '#D4AF37' : 'rgba(255,255,255,0.05)',
                               color: checked ? '#0a3340' : '#d1d5db',
                               fontWeight: checked ? 600 : 400,
-                              border: `1px solid ${checked ? cat.color : 'rgba(255,255,255,0.08)'}`,
+                              border: `1px solid ${checked ? '#D4AF37' : 'rgba(255,255,255,0.08)'}`,
                             }}>
                             <span>{checked ? '✓' : '○'}</span>{item}
                           </button>
                         )
                       })}
                     </div>
-                  </div>
-                )
-              })}
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <input
+                type="text"
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddCustomItem()}
+                placeholder="Add a custom item..."
+                className="flex-1 px-4 py-3 rounded-xl text-white placeholder-gray-400 outline-none"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
+              />
+              <button onClick={handleAddCustomItem} disabled={!newItemName.trim()}
+                className="px-5 py-3 rounded-xl font-semibold text-sm transition disabled:opacity-40"
+                style={{ background: '#D4AF37', color: '#0a3340' }}>
+                + Add
+              </button>
             </div>
           </>
         )}
