@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
-import { getModel } from '../../../lib/ai'
+import { getModel, collectStream } from '../../../lib/ai'
+import { validateInput, validateOutput } from '../../../lib/guardrails'
 import { RecipeGenerationSchema, badRequest } from '../../../lib/validation'
 import { createSupabaseServer } from '../../../lib/supabase-server'
 import { ratelimit } from '../../../lib/ratelimit'
@@ -29,6 +30,11 @@ export async function POST(request: NextRequest) {
     const parsed = RecipeGenerationSchema.safeParse(await request.json())
     if (!parsed.success) return badRequest(parsed.error)
     const { ingredients, calories, protein, restrictions } = parsed.data
+
+    const inputGuard = await validateInput(ingredients)
+    if (!inputGuard.valid) {
+      return NextResponse.json({ error: inputGuard.reason }, { status: 400 })
+    }
 
     const model = getModel('text')
 
@@ -64,25 +70,16 @@ export async function POST(request: NextRequest) {
       restrictions: restrictions || 'none',
     })
 
-    const encoder = new TextEncoder()
-    const stream = new ReadableStream({
-      async start(controller) {
-        const langStream = await model.stream(formattedPrompt)
-        for await (const chunk of langStream) {
-          const text = typeof chunk.content === 'string' ? chunk.content : ''
-          if (text) controller.enqueue(encoder.encode(text))
-        }
-        controller.close()
-      },
-    })
+    const data = JSON.parse(await collectStream(model, formattedPrompt))
+    const outputGuard = validateOutput(data.recipes ?? [])
+    if (!outputGuard.valid) {
+      return NextResponse.json(
+        { error: 'Generated recipes contain unrealistic nutritional values' },
+        { status: 422 }
+      )
+    }
 
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'no-cache',
-        'Transfer-Encoding': 'chunked',
-      },
-    })
+    return NextResponse.json(data)
   } catch (error: any) {
     console.error('Recipe API Error:', error)
     return new Response(

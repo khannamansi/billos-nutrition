@@ -14,6 +14,8 @@ interface Recipe {
   instructions: string
 }
 
+const FOOD_EMOJIS = ['🍳', '🥗', '🍗', '🥑', '🍽️']
+
 export default function RecipesPage() {
   const { user, loading: authLoading } = useUser()
   const [ingredients, setIngredients] = useState('')
@@ -22,7 +24,7 @@ export default function RecipesPage() {
   const [restrictions, setRestrictions] = useState('')
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [streaming, setStreaming] = useState(false)
-  const [streamProgress, setStreamProgress] = useState(0)
+  const [emojiIdx, setEmojiIdx] = useState(0)
   const [saving, setSaving] = useState<string | null>(null)
   const [savedNames, setSavedNames] = useState<Set<string>>(new Set())
   const [guestPrompt, setGuestPrompt] = useState(false)
@@ -51,49 +53,34 @@ export default function RecipesPage() {
       .catch(() => {})
   }, [user, authLoading])
 
+  useEffect(() => {
+    if (!streaming) { setEmojiIdx(0); return }
+    const id = setInterval(() => setEmojiIdx((i) => (i + 1) % FOOD_EMOJIS.length), 500)
+    return () => clearInterval(id)
+  }, [streaming])
+
   const generateRecipes = async () => {
     if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); return }
     if (!ingredients.trim()) return
 
     setStreaming(true)
-    setStreamProgress(0)
     setRecipes([])
+    setError(null)
 
     try {
-      const response = await fetch('/api/recipes', {
+      const data = await apiFetch<{ recipes: Recipe[] }>('/api/recipes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ingredients, calories, protein, restrictions }),
       })
-
-      if (!response.body) throw new Error('No response body')
-
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let accumulated = ''
-      let chars = 0
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const chunk = decoder.decode(value)
-        accumulated += chunk
-        chars += chunk.length
-        setStreamProgress(Math.min(chars, 800))
+      if (data.recipes) {
+        setRecipes(data.recipes)
+        sessionStorage.setItem('billos:recipes', JSON.stringify({ recipes: data.recipes, ingredients }))
       }
-
-      const clean = accumulated.replace(/```json|```/g, '').trim()
-      const parsed = JSON.parse(clean)
-      if (parsed.recipes) {
-        setRecipes(parsed.recipes)
-        sessionStorage.setItem('billos:recipes', JSON.stringify({ recipes: parsed.recipes, ingredients }))
-      }
-    } catch (error) {
-      console.error(error)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setStreaming(false)
     }
-
-    setStreaming(false)
-    setStreamProgress(0)
   }
 
   const handleSave = async (recipe: Recipe) => {
@@ -172,17 +159,9 @@ export default function RecipesPage() {
           </button>
 
           {streaming && (
-            <div className="mt-4">
-              <div className="flex justify-between text-xs text-gray-400 mb-1">
-                <span>Generating recipes...</span>
-                <span>{Math.round((streamProgress / 800) * 100)}%</span>
-              </div>
-              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                <div
-                  className="h-full rounded-full transition-all duration-300"
-                  style={{ width: `${Math.min((streamProgress / 800) * 100, 95)}%`, background: '#D4AF37' }}
-                />
-              </div>
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <span className="text-4xl" key={emojiIdx}>{FOOD_EMOJIS[emojiIdx]}</span>
+              <p className="text-sm text-gray-400">Billo is cooking up your recipes...</p>
             </div>
           )}
         </div>

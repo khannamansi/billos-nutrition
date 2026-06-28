@@ -8,16 +8,14 @@ jest.mock('../../lib/ratelimit', () => ({
   ratelimit: { limit: jest.fn() },
 }))
 
+jest.mock('../../lib/guardrails', () => ({
+  validateInput: jest.fn().mockResolvedValue({ valid: true }),
+  validateOutput: jest.fn().mockReturnValue({ valid: true }),
+}))
+
 jest.mock('../../lib/ai', () => ({
-  getModel: jest.fn().mockReturnValue({
-    stream: jest.fn().mockImplementation(() =>
-      Promise.resolve(
-        (async function* () {
-          yield { content: mockRecipeJSON }
-        })()
-      )
-    ),
-  }),
+  getModel: jest.fn().mockReturnValue({}),
+  collectStream: jest.fn(),
 }))
 
 jest.mock('@langchain/core/prompts', () => ({
@@ -32,6 +30,8 @@ import { NextRequest } from 'next/server'
 import { POST } from '../../app/api/recipes/route'
 import { createSupabaseServer } from '../../lib/supabase-server'
 import { ratelimit } from '../../lib/ratelimit'
+import { validateInput, validateOutput } from '../../lib/guardrails'
+import { collectStream } from '../../lib/ai'
 
 const mockRecipeJSON = JSON.stringify({
   recipes: [
@@ -54,19 +54,8 @@ beforeEach(() => {
   ;(createSupabaseServer as jest.Mock).mockResolvedValue(mockSupabase)
   mockSupabase.auth.getUser.mockResolvedValue({ data: { user: mockUser } })
   ;(ratelimit.limit as jest.Mock).mockResolvedValue({ success: true, limit: 10, remaining: 9, reset: Date.now() + 3600000 })
+  ;(collectStream as jest.Mock).mockResolvedValue(mockRecipeJSON)
 })
-
-async function readStreamText(response: Response): Promise<string> {
-  const reader = response.body!.getReader()
-  const decoder = new TextDecoder()
-  let text = ''
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    text += decoder.decode(value)
-  }
-  return text
-}
 
 describe('Recipe API', () => {
   it('returns 401 when not authenticated', async () => {
@@ -95,8 +84,7 @@ describe('Recipe API', () => {
       body: JSON.stringify({ ingredients: 'chicken, broccoli', calories: 1400, protein: 120, restrictions: 'no beef' }),
     })
     const response = await POST(request)
-    const text = await readStreamText(response)
-    const data = JSON.parse(text)
+    const data = await response.json()
     expect(response.status).toBe(200)
     expect(Array.isArray(data.recipes)).toBe(true)
   })
@@ -107,7 +95,7 @@ describe('Recipe API', () => {
       body: JSON.stringify({ ingredients: 'eggs, milk', calories: 2000, protein: 150, restrictions: '' }),
     })
     const response = await POST(request)
-    const data = JSON.parse(await readStreamText(response))
+    const data = await response.json()
     expect(data.recipes[0]).toHaveProperty('name')
     expect(data.recipes[0]).toHaveProperty('calories')
     expect(data.recipes[0]).toHaveProperty('protein')
@@ -122,7 +110,7 @@ describe('Recipe API', () => {
       body: JSON.stringify({ ingredients: 'salmon', calories: 1600, protein: 130, restrictions: 'nut-free' }),
     })
     const response = await POST(request)
-    const data = JSON.parse(await readStreamText(response))
+    const data = await response.json()
     data.recipes.forEach((recipe: { calories: number; protein: number }) => {
       expect(typeof recipe.calories).toBe('number')
       expect(typeof recipe.protein).toBe('number')
@@ -137,7 +125,7 @@ describe('Recipe API', () => {
       body: JSON.stringify({ ingredients: 'beef, carrots', calories: 1800, protein: 140, restrictions: '' }),
     })
     const response = await POST(request)
-    const data = JSON.parse(await readStreamText(response))
+    const data = await response.json()
     data.recipes.forEach((r: { name: string; prepTime: string; ingredients: string; instructions: string }) => {
       expect(r.name.trim().length).toBeGreaterThan(0)
       expect(r.prepTime.trim().length).toBeGreaterThan(0)
@@ -172,5 +160,26 @@ describe('Recipe API', () => {
     const response = await POST(request)
     const data = await response.json()
     expect(typeof data.error).toBe('string')
+  })
+
+  it('returns 400 when input is not food-related', async () => {
+    ;(validateInput as jest.Mock).mockResolvedValueOnce({ valid: false, reason: 'Input does not appear to be food or nutrition related' })
+    const request = new NextRequest('http://localhost/api/recipes', {
+      method: 'POST',
+      body: JSON.stringify({ ingredients: 'write me a python script', calories: 1400, protein: 120 }),
+    })
+    const response = await POST(request)
+    expect(response.status).toBe(400)
+    expect((await response.json()).error).toMatch(/food|nutrition/i)
+  })
+
+  it('returns 422 when generated recipes have unrealistic macros', async () => {
+    ;(validateOutput as jest.Mock).mockReturnValueOnce({ valid: false, invalid: [] })
+    const request = new NextRequest('http://localhost/api/recipes', {
+      method: 'POST',
+      body: JSON.stringify({ ingredients: 'chicken', calories: 1400, protein: 120 }),
+    })
+    const response = await POST(request)
+    expect(response.status).toBe(422)
   })
 })

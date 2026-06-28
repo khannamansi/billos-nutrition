@@ -8,16 +8,13 @@ jest.mock('../../lib/ratelimit', () => ({
   ratelimit: { limit: jest.fn() },
 }))
 
+jest.mock('../../lib/guardrails', () => ({
+  validateInput: jest.fn().mockResolvedValue({ valid: true }),
+}))
+
 jest.mock('../../lib/ai', () => ({
-  getModel: jest.fn().mockReturnValue({
-    stream: jest.fn().mockImplementation(() =>
-      Promise.resolve(
-        (async function* () {
-          yield { content: mockShoppingJSON }
-        })()
-      )
-    ),
-  }),
+  getModel: jest.fn().mockReturnValue({}),
+  collectStream: jest.fn(),
 }))
 
 jest.mock('@langchain/core/prompts', () => ({
@@ -32,6 +29,8 @@ import { NextRequest } from 'next/server'
 import { POST } from '../../app/api/shopping/route'
 import { createSupabaseServer } from '../../lib/supabase-server'
 import { ratelimit } from '../../lib/ratelimit'
+import { validateInput } from '../../lib/guardrails'
+import { collectStream } from '../../lib/ai'
 
 const mockShoppingJSON = JSON.stringify({
   items: [
@@ -49,19 +48,8 @@ beforeEach(() => {
   ;(createSupabaseServer as jest.Mock).mockResolvedValue(mockSupabase)
   mockSupabase.auth.getUser.mockResolvedValue({ data: { user: mockUser } })
   ;(ratelimit.limit as jest.Mock).mockResolvedValue({ success: true, limit: 10, remaining: 9, reset: Date.now() + 3600000 })
+  ;(collectStream as jest.Mock).mockResolvedValue(mockShoppingJSON)
 })
-
-async function readStreamText(response: Response): Promise<string> {
-  const reader = response.body!.getReader()
-  const decoder = new TextDecoder()
-  let text = ''
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    text += decoder.decode(value)
-  }
-  return text
-}
 
 describe('Shopping API', () => {
   it('returns 401 when not authenticated', async () => {
@@ -90,7 +78,7 @@ describe('Shopping API', () => {
       body: JSON.stringify({ ingredients: 'chicken, eggs', calories: 1400, protein: 120, restrictions: 'no beef' }),
     })
     const response = await POST(request)
-    const data = JSON.parse(await readStreamText(response))
+    const data = await response.json()
     expect(response.status).toBe(200)
     expect(Array.isArray(data.items)).toBe(true)
   })
@@ -101,7 +89,7 @@ describe('Shopping API', () => {
       body: JSON.stringify({ ingredients: 'eggs', calories: 2000, protein: 150, restrictions: '' }),
     })
     const response = await POST(request)
-    const data = JSON.parse(await readStreamText(response))
+    const data = await response.json()
     expect(data.items[0]).toHaveProperty('name')
     expect(data.items[0]).toHaveProperty('category')
     expect(data.items[0]).toHaveProperty('checked')
@@ -113,7 +101,7 @@ describe('Shopping API', () => {
       body: JSON.stringify({ ingredients: 'chicken', calories: 2000, protein: 150, restrictions: '' }),
     })
     const response = await POST(request)
-    const data = JSON.parse(await readStreamText(response))
+    const data = await response.json()
     data.items.forEach((item: { name: string; category: string }) => {
       expect(item.name.trim().length).toBeGreaterThan(0)
       expect(item.category.trim().length).toBeGreaterThan(0)
@@ -126,7 +114,7 @@ describe('Shopping API', () => {
       body: JSON.stringify({ ingredients: 'eggs', calories: 2000, protein: 150, restrictions: '' }),
     })
     const response = await POST(request)
-    const data = JSON.parse(await readStreamText(response))
+    const data = await response.json()
     data.items.forEach((item: { checked: boolean }) => {
       expect(item.checked).toBe(false)
     })
@@ -158,5 +146,16 @@ describe('Shopping API', () => {
     const response = await POST(request)
     const data = await response.json()
     expect(typeof data.error).toBe('string')
+  })
+
+  it('returns 400 when input is not food-related', async () => {
+    ;(validateInput as jest.Mock).mockResolvedValueOnce({ valid: false, reason: 'Input does not appear to be food or nutrition related' })
+    const request = new NextRequest('http://localhost/api/shopping', {
+      method: 'POST',
+      body: JSON.stringify({ ingredients: 'write me a python script', calories: 1400, protein: 120 }),
+    })
+    const response = await POST(request)
+    expect(response.status).toBe(400)
+    expect((await response.json()).error).toMatch(/food|nutrition/i)
   })
 })

@@ -14,6 +14,8 @@ interface ShoppingItem {
 
 type StockedMap = Record<string, boolean>
 
+const FOOD_EMOJIS = ['🛒', '🥦', '🍗', '🥚', '🥛']
+
 export default function ShoppingPage() {
   const { user, loading: authLoading } = useUser()
   const [tab, setTab] = useState<'shopping' | 'pantry'>('shopping')
@@ -25,6 +27,7 @@ export default function ShoppingPage() {
   const [items, setItems] = useState<ShoppingItem[]>([])
   const [loading, setLoading] = useState(false)
   const [streaming, setStreaming] = useState(false)
+  const [emojiIdx, setEmojiIdx] = useState(0)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [guestPrompt, setGuestPrompt] = useState(false)
@@ -65,33 +68,29 @@ export default function ShoppingPage() {
     })
   }, [user, authLoading])
 
+  useEffect(() => {
+    if (!streaming) { setEmojiIdx(0); return }
+    const id = setInterval(() => setEmojiIdx((i) => (i + 1) % FOOD_EMOJIS.length), 500)
+    return () => clearInterval(id)
+  }, [streaming])
+
   const generateList = async () => {
     if (!user) { setGuestPrompt(true); setTimeout(() => setGuestPrompt(false), 3000); return }
     setStreaming(true)
     setItems([])
+    setError(null)
 
     try {
-      const response = await fetch('/api/shopping', {
+      const data = await apiFetch<{ items: ShoppingItem[] }>('/api/shopping', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ingredients, calories, protein, restrictions }),
       })
-      if (!response.body) throw new Error('No response body')
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let accumulated = ''
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        accumulated += decoder.decode(value)
-      }
-      const clean = accumulated.replace(/```json|```/g, '').trim()
-      const parsed = JSON.parse(clean)
-      if (parsed.items) setItems(parsed.items)
-    } catch (error) {
-      console.error(error)
+      if (data.items) setItems(data.items)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setStreaming(false)
     }
-    setStreaming(false)
   }
 
   const toggleItem = (index: number) => {
@@ -203,6 +202,12 @@ export default function ShoppingPage() {
                 style={{ background: '#D4AF37', color: '#0a3340' }}>
                 {streaming ? '✨ Billo is building your list...' : '✨ Generate Shopping List'}
               </button>
+              {streaming && (
+                <div className="mt-4 flex flex-col items-center gap-2">
+                  <span className="text-4xl" key={emojiIdx}>{FOOD_EMOJIS[emojiIdx]}</span>
+                  <p className="text-sm text-gray-400">Billo is stocking your list...</p>
+                </div>
+              )}
             </div>
 
             {message && (

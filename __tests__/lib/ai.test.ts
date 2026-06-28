@@ -2,7 +2,7 @@
 
 jest.mock('@langchain/openai', () => ({ ChatOpenAI: jest.fn() }))
 
-import { getModel } from '../../lib/ai'
+import { getModel, collectStream } from '../../lib/ai'
 import { ChatOpenAI } from '@langchain/openai'
 
 const MockChatOpenAI = ChatOpenAI as unknown as jest.Mock
@@ -56,6 +56,37 @@ describe('getModel — vision', () => {
     process.env.VISION_MODEL = 'gpt-4-turbo'
     getModel('vision')
     expect(MockChatOpenAI).toHaveBeenCalledWith(expect.objectContaining({ model: 'gpt-4-turbo' }))
+  })
+})
+
+describe('collectStream', () => {
+  it('concatenates chunks into a single string', async () => {
+    const mockStream = (async function* () {
+      yield { content: '{"recipes":' }
+      yield { content: '[]}' }
+    })()
+    const model = { stream: jest.fn().mockResolvedValue(mockStream) }
+    const result = await collectStream(model as any, [])
+    expect(result).toBe('{"recipes":[]}')
+  })
+
+  it('strips markdown code fences', async () => {
+    const mockStream = (async function* () {
+      yield { content: '```json\n{"items":[]}\n```' }
+    })()
+    const model = { stream: jest.fn().mockResolvedValue(mockStream) }
+    const result = await collectStream(model as any, [])
+    expect(result).toBe('{"items":[]}')
+  })
+
+  it('ignores non-string chunk content', async () => {
+    const mockStream = (async function* () {
+      yield { content: null }
+      yield { content: '{}' }
+    })()
+    const model = { stream: jest.fn().mockResolvedValue(mockStream) }
+    const result = await collectStream(model as any, [])
+    expect(result).toBe('{}')
   })
 })
 

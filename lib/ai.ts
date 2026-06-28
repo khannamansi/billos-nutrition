@@ -21,3 +21,15 @@ export function getModel(task: TaskType): ChatOpenAI {
     apiKey: process.env.OPENAI_API_KEY,
   })
 }
+
+export async function collectStream(
+  model: ChatOpenAI,
+  messages: Parameters<ChatOpenAI['stream']>[0]
+): Promise<string> {
+  let text = ''
+  const stream = await model.stream(messages)
+  for await (const chunk of stream) {
+    text += typeof chunk.content === 'string' ? chunk.content : ''
+  }
+  return text.replace(/```json|```/g, '').trim()
+}
